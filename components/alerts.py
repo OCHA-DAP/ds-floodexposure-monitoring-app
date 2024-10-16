@@ -12,3 +12,14 @@ internal_alert = dbc.Alert(
     color="danger",
     dismissable=True,
 )
+
+geography_alert = dbc.Alert(
+    [
+        "Results may vary widely between different geographies "
+        "(such as desert vs. wetlands). These differences have not yet been "
+        "thoroughly analyzed; the use of this data to compare flood impact "
+        "between geographies is not recommended.",
+    ],
+    color="warning",
+    dismissable=True,
+)
