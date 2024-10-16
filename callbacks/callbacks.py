@@ -213,6 +213,7 @@ def register_callbacks(app):
             go.Scatter(
                 x=peak_anytime_f["rp"],
                 y=peak_anytime_f[val_col],
+                name="all years",
                 mode="lines",
                 line_color="black",
             )
@@ -232,6 +233,7 @@ def register_callbacks(app):
                 y=[peak_2024[val_col]],
                 text=f"2024:<br>Exposure = {int(peak_2024[val_col]):,} people<br>"
                 f"Return period = {peak_2024['rp']:.1f} years",
+                name="current year",
                 textposition=position,
                 mode="markers+text",
                 marker_color=CHD_GREEN,
@@ -249,6 +251,7 @@ def register_callbacks(app):
                 x=rp_peaks["rp"],
                 y=rp_peaks[val_col],
                 text=rp_peaks["date"],
+                name="≥3-yr RP years",
                 textposition="top left",
                 mode="markers+text",
                 marker_color="red",

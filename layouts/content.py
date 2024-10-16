@@ -1,8 +1,10 @@
 import dash_bootstrap_components as dbc
+from dash import dcc
 
-from components import dropdowns
+from components import dropdowns, text
 from components.alerts import geography_alert, internal_alert
 from components.plots import rp_plot, timeseries_plot
+from src.constants import NAVBAR_HEIGHT
 
 
 def content(app):
@@ -19,9 +21,26 @@ def content(app):
                 ],
                 className="my-2",
             ),
-            dbc.Row([dbc.Col([timeseries_plot])], className="my-2"),
-            dbc.Row([dbc.Col([rp_plot])], className="my-2"),
+            dbc.Row(
+                [dbc.Col([text.timeseries_text, dcc.Loading(timeseries_plot)])],
+                className="my-4",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            text.rp_text,
+                            dcc.Loading(rp_plot),
+                        ]
+                    )
+                ],
+                className="my-4",
+            ),
+            dbc.Row(
+                [dbc.Col([text.data_sources, text.methodology, text.code_references])],
+                className="my-4",
+            ),
         ],
-        style={"marginTop": "60px"},
+        style={"marginTop": f"{NAVBAR_HEIGHT}px"},
         className="p-2",
     )

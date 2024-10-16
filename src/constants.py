@@ -9,3 +9,5 @@ iso3_to_pcode = {
 }
 
 CHD_GREEN = "#1bb580"
+
+NAVBAR_HEIGHT = 60

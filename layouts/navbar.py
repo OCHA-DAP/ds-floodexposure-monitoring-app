@@ -1,6 +1,8 @@
 import dash_bootstrap_components as dbc
 from dash import html
 
+from src.constants import NAVBAR_HEIGHT
+
 navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(
@@ -10,7 +12,7 @@ navbar = dbc.NavbarSimple(
             ),
         ),
     ],
-    style={"height": "60px", "margin": "0px", "padding": "10px"},
+    style={"height": f"{NAVBAR_HEIGHT}px", "margin": "0px", "padding": "10px"},
     brand="Flood Exposure Monitoring",
     fixed="top",
     color="primary",
