@@ -192,7 +192,7 @@ def register_callbacks(app):
             xaxis=dict(tickformat="%b %d", dtick="M1"),
             title=f"{adm_name} - time series<br>"
             f"<sup>Years above 3-year return period shown in red</sup>",
-            legend_title="Year",
+            legend_title="Year<br><sup>(click to toggle)</sup>",
             height=600,
             margin={"t": 50, "l": 0, "r": 0, "b": 0},
         )

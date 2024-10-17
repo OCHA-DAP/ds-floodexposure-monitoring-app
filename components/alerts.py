@@ -17,7 +17,7 @@ geography_alert = dbc.Alert(
     [
         "Results may vary widely between different geographies "
         "(such as desert vs. wetlands). These differences have not yet been "
-        "thoroughly analyzed; the use of this data to compare flood impact "
+        "thoroughly analyzed; the use of this data to compare flood exposure "
         "between geographies is not recommended.",
     ],
     color="warning",
