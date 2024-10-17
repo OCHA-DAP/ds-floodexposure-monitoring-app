@@ -16,7 +16,7 @@ def migrate_data_to_repo(clobber: bool = False):
         return
     adms = []
     for iso3 in ISO3S:
-        print(f"loading {iso3} adm")
+        print(f"loading {iso3} adm to migrate")
         gdf_in = codab.load_codab_from_blob(iso3, admin_level=2)
         adms.append(gdf_in)
     adm = pd.concat(adms, ignore_index=True)

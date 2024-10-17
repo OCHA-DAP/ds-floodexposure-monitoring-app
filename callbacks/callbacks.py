@@ -42,10 +42,15 @@ def register_callbacks(app):
         if adm_level in ["0", "1"]:
             return [{"label": "", "value": ""}], "", True
         adm = app.data.get("adm")
-        adm_f = adm[adm["ADM1_NAME"] == adm1].sort_values(by="ADM2_NAME")
+        adm_f = adm[adm["ADM1_PCODE"] == adm1].sort_values(by="ADM2_NAME")
         return (
-            [{"label": x, "value": x} for x in adm_f["ADM2_NAME"].unique()],
-            adm_f["ADM2_NAME"].iloc[0],
+            [
+                {"label": name, "value": pcode}
+                for (pcode, name) in adm_f.groupby("ADM2_PCODE")["ADM2_NAME"]
+                .first()
+                .items()
+            ],
+            adm_f["ADM2_PCODE"].iloc[0],
             False,
         )
 
@@ -94,7 +99,6 @@ def register_callbacks(app):
         # aggregation by admin
         if adm_level == "0":
             adm_name = adm.iloc[0]["ADM0_NAME"]
-
             dff = (
                 df.groupby(["dayofyear", "date"])[val_col]
                 .sum()
@@ -102,13 +106,10 @@ def register_callbacks(app):
                 .sort_values("date", ascending=False)
             )
             dff["eff_date"] = pd.to_datetime(dff["dayofyear"], format="%j")
-
             seasonal_f = seasonal.groupby("eff_date")[val_col].sum().reset_index()
-
             peak_anytime_f = peak_anytime.groupby("date")[val_col].sum().reset_index()
         elif adm_level == "1":
             adm_name = adm[adm["ADM1_PCODE"] == adm1_pcode].iloc[0]["ADM1_NAME"]
-
             dff = (
                 df[df["ADM1_PCODE"] == adm1_pcode]
                 .sort_values("date", ascending=False)
@@ -118,14 +119,12 @@ def register_callbacks(app):
                 .sort_values("date", ascending=False)
             )
             dff["eff_date"] = pd.to_datetime(dff["dayofyear"], format="%j")
-
             seasonal_f = (
                 seasonal[seasonal["ADM1_PCODE"] == adm1_pcode]
                 .groupby("eff_date")[val_col]
                 .sum()
                 .reset_index()
             )
-
             peak_anytime_f = (
                 peak_anytime[peak_anytime["ADM1_PCODE"] == adm1_pcode]
                 .groupby("date")[val_col]
@@ -134,12 +133,10 @@ def register_callbacks(app):
             )
         elif adm_level == "2":
             adm_name = adm[adm["ADM2_PCODE"] == adm2_pcode].iloc[0]["ADM2_NAME"]
-
             dff = df[df["ADM2_PCODE"] == adm2_pcode].sort_values(
                 "date", ascending=False
             )
             seasonal_f = seasonal[seasonal["ADM2_PCODE"] == adm2_pcode]
-
             peak_anytime_f = peak_anytime[
                 peak_anytime["ADM2_PCODE"] == adm2_pcode
             ].copy()
