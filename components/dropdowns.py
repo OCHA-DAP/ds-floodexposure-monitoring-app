@@ -31,7 +31,7 @@ def get_adm0_dropdown(app):
                     }
                     for x in ISO3S
                 ],
-                value="nga",
+                value="tcd",
             ),
         ],
         size="sm",
