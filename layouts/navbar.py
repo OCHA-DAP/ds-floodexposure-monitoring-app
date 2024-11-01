@@ -1,7 +1,7 @@
 import dash_bootstrap_components as dbc
 from dash import html
 
-from src.constants import NAVBAR_HEIGHT
+from constants import NAVBAR_HEIGHT
 
 navbar = dbc.NavbarSimple(
     children=[

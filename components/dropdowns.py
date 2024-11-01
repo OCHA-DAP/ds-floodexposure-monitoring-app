@@ -1,6 +1,6 @@
 import dash_bootstrap_components as dbc
 
-from src.constants import ISO3S
+from constants import ISO3S
 
 adm_level_dropdown = dbc.InputGroup(
     [

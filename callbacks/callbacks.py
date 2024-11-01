@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from sqlalchemy import text
 
-from src.constants import CHD_GREEN, engine, iso3_to_pcode
+from constants import CHD_GREEN, engine, iso3_to_pcode
 
 
 def register_callbacks(app):

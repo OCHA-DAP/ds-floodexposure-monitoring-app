@@ -4,7 +4,7 @@ from dash import dcc
 from components import dropdowns, text
 from components.alerts import geography_alert, internal_alert
 from components.plots import rp_plot, timeseries_plot
-from src.constants import NAVBAR_HEIGHT
+from constants import NAVBAR_HEIGHT
 
 
 def content():

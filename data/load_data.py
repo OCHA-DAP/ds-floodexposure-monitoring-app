@@ -3,7 +3,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-from src.constants import ISO3S
+from constants import ISO3S
 from src.datasources import codab, floodscan
 from src.utils import blob
 
@@ -51,7 +51,6 @@ def load_data():
         )
         df["dayofyear"] = df["date"].dt.dayofyear
         df["eff_date"] = pd.to_datetime(df["dayofyear"], format="%j")
-        df.to_csv("df.csv")
         data_out[iso3] = df
     print("data loaded...")
     return data_out
