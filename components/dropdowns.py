@@ -1,6 +1,6 @@
 import dash_bootstrap_components as dbc
 
-from src.constants import ISO3S, iso3_to_pcode
+from src.constants import ISO3S
 
 adm_level_dropdown = dbc.InputGroup(
     [
@@ -15,22 +15,13 @@ adm_level_dropdown = dbc.InputGroup(
 )
 
 
-def get_adm0_dropdown(app):
-    adm = app.data.get("adm")
+def get_adm0_dropdown():
     return dbc.InputGroup(
         [
             dbc.InputGroupText("Country"),
             dbc.Select(
                 id="iso3",
-                options=[
-                    {
-                        "label": adm[adm["ADM0_PCODE"] == iso3_to_pcode.get(x)].iloc[0][
-                            "ADM0_NAME"
-                        ],
-                        "value": x,
-                    }
-                    for x in ISO3S
-                ],
+                options=ISO3S,
                 value="tcd",
             ),
         ],

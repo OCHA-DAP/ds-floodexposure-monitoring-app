@@ -24,6 +24,7 @@ def migrate_data_to_repo(clobber: bool = False):
 
 
 def load_data():
+    print("Loading data...")
     migrate_data_to_repo()
     data_out = {}
     adm = gpd.read_file(LOCAL_DATA_DIR / "adm.shp")
@@ -50,5 +51,7 @@ def load_data():
         )
         df["dayofyear"] = df["date"].dt.dayofyear
         df["eff_date"] = pd.to_datetime(df["dayofyear"], format="%j")
+        df.to_csv("df.csv")
         data_out[iso3] = df
+    print("data loaded...")
     return data_out

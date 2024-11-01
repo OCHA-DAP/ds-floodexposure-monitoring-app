@@ -7,7 +7,7 @@ from components.plots import rp_plot, timeseries_plot
 from src.constants import NAVBAR_HEIGHT
 
 
-def content(app):
+def content():
     return dbc.Container(
         [
             dbc.Row([dbc.Col([internal_alert])], className="my-2"),
@@ -15,7 +15,7 @@ def content(app):
             dbc.Row(
                 [
                     dbc.Col(dropdowns.adm_level_dropdown),
-                    dbc.Col(dropdowns.get_adm0_dropdown(app)),
+                    dbc.Col(dropdowns.get_adm0_dropdown()),
                     dbc.Col(dropdowns.adm1_dropdown),
                     dbc.Col(dropdowns.adm2_dropdown),
                 ],

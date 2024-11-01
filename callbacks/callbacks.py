@@ -1,8 +1,11 @@
+import time
+
 import pandas as pd
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output
+from sqlalchemy import text
 
-from src.constants import CHD_GREEN, iso3_to_pcode
+from src.constants import CHD_GREEN, engine, iso3_to_pcode
 
 
 def register_callbacks(app):
@@ -16,7 +19,8 @@ def register_callbacks(app):
     def update_adm1_dropdown(adm_level, iso3):
         if adm_level == "0":
             return [{"label": "", "value": ""}], "", True
-        adm = app.data.get("adm")
+        with engine.connect() as con:
+            adm = pd.read_sql_query(text("select * from app.adm"), con)
         adm_f = adm[adm["ADM0_PCODE"] == iso3_to_pcode.get(iso3)].sort_values(
             by="ADM1_NAME"
         )
@@ -41,7 +45,8 @@ def register_callbacks(app):
     def update_adm2_dropdown(adm_level, adm1):
         if adm_level in ["0", "1"]:
             return [{"label": "", "value": ""}], "", True
-        adm = app.data.get("adm")
+        with engine.connect() as con:
+            adm = pd.read_sql_query(text("select * from app.adm"), con)
         adm_f = adm[adm["ADM1_PCODE"] == adm1].sort_values(by="ADM2_NAME")
         return (
             [
@@ -61,13 +66,27 @@ def register_callbacks(app):
         Input("iso3", "value"),
         Input("adm1", "value"),
         Input("adm2", "value"),
+        prevent_initial_call=True,
     )
     def update_timeseries_rp_plots(adm_level, iso3, adm1_pcode, adm2_pcode):
+        pcode = iso3_to_pcode.get(iso3)
+        start = time.time()
+        print(f"Getting data for {iso3}...")
+        query_exposure = text(f"select * from app.flood_exposure where iso3='{iso3}'")
+        query_adm = text("select * from app.adm")
+        with engine.connect() as con:
+            df = pd.read_sql_query(query_exposure, con)
+            adm = pd.read_sql_query(query_adm, con)
+            # TODO Get query working on db
+            adm = adm[adm["ADM0_PCODE"] == pcode]
+
+        elapsed = time.time() - start
+        print(f"Data retrieved in {elapsed: .4f} seconds")
+        print(f"{len(df)} rows of flood exposure data")
+        start = time.time()
+
         # initial processing
         window = 7
-        df = app.data.get(iso3).copy()
-        adm = app.data.get("adm").copy()
-        adm = adm[adm["ADM0_PCODE"] == iso3_to_pcode.get(iso3)]
         most_recent_date_str = f"{df['date'].max():%Y-%m-%d}"
         val_col = f"roll{window}"
 
@@ -269,5 +288,6 @@ def register_callbacks(app):
             title="Total population exposed to flooding during the year"
         )
         fig_rp.update_xaxes(title="Return period (years)")
-
+        elapsed = time.time() - start
+        print(f"Processed data and made plots in {elapsed:.4f} seconds")
         return fig_timeseries, fig_rp
