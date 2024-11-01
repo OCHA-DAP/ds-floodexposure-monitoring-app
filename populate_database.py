@@ -64,6 +64,7 @@ def load_data(engine):
         )
         df["dayofyear"] = df["date"].dt.dayofyear
         df["eff_date"] = pd.to_datetime(df["dayofyear"], format="%j")
+        df["iso3"] = iso3
         df.to_sql(
             "flood_exposure",
             schema="app",
