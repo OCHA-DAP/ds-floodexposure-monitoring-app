@@ -72,10 +72,10 @@ def register_callbacks(app):
         pcode = iso3_to_pcode.get(iso3)
         start = time.time()
         print(f"Getting data for {iso3}...")
-        query_exposure = text(f"select * from app.flood_exposure where iso3='{iso3}'")
+        query_exposure = text("select * from app.flood_exposure where iso3=:iso3")
         query_adm = text("select * from app.adm")
         with engine.connect() as con:
-            df = pd.read_sql_query(query_exposure, con)
+            df = pd.read_sql_query(query_exposure, con, params={"iso3": iso3})
             adm = pd.read_sql_query(query_adm, con)
             # TODO Get query working on db
             adm = adm[adm["ADM0_PCODE"] == pcode]
