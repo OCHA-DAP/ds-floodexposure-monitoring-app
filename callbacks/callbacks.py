@@ -1,75 +1,121 @@
 import time
 
+import dash_leaflet as dl
 import pandas as pd
 import plotly.graph_objects as go
-from dash.dependencies import Input, Output
+from dash import Input, Output, State, no_update
+from dash_extensions.javascript import arrow_function, assign
 from sqlalchemy import text
 
-from constants import CHD_GREEN, engine, iso3_to_pcode
+from constants import ATTRIBUTION, CHD_GREEN, URL, engine, pcode_to_iso3
+
+style_handle = assign(
+    """
+    function(feature, context) {
+        const selected = context.hideout.selected
+
+        if(selected.includes(feature.properties.ADM2_PCODE)){
+            return {
+                fillColor: '#1f77b4',
+                weight: 0.8,
+                opacity: 1,
+                color: 'white',
+                fillOpacity: 0.5
+            }
+        }
+        return {
+            fillColor: '#1f77b4',
+            weight: 0.8,
+            opacity: 1,
+            color: 'white',
+            fillOpacity: 0.3
+        }
+    }
+"""
+)
 
 
 def register_callbacks(app):
     @app.callback(
-        Output("adm1", "options"),
-        Output("adm1", "value"),
-        Output("adm1", "disabled"),
-        Input("adm_level", "value"),
-        Input("iso3", "value"),
+        Output("selected-pcode", "data"),
+        Output("geojson", "hideout"),
+        Input("geojson", "n_clicks"),
+        State("adm-level", "value"),
+        State("geojson", "clickData"),
+        State("geojson", "hideout"),
+        prevent_initial_call=True,
     )
-    def update_adm1_dropdown(adm_level, iso3):
-        if adm_level == "0":
-            return [{"label": "", "value": ""}], "", True
-        with engine.connect() as con:
-            adm = pd.read_sql_query(text("select * from app.adm"), con)
-        adm_f = adm[adm["ADM0_PCODE"] == iso3_to_pcode.get(iso3)].sort_values(
-            by="ADM1_NAME"
-        )
-        return (
-            [
-                {"label": name, "value": pcode}
-                for (pcode, name) in adm_f.groupby("ADM1_PCODE")["ADM1_NAME"]
-                .first()
-                .items()
-            ],
-            adm_f["ADM1_PCODE"].iloc[0],
-            False,
-        )
+    def toggle_select(_, adm_level, feature, hideout):
+        if not _:
+            return no_update
+        if not feature:
+            return no_update
+
+        name = feature["properties"][f"ADM{adm_level}_PCODE"]
+        if hideout["selected"] == name:
+            hideout["selected"] = ""
+        else:
+            hideout["selected"] = name
+        return name, hideout
+
+    # @app.callback(
+    #     Output("selected-iso3", "data"),
+    #     Output("geojson-adm0", "hideout"),
+    #     Input("geojson-adm0", "n_clicks"),
+    #     State("geojson-adm0", "clickData"),
+    #     State("geojson-adm0", "hideout"),
+    #     prevent_initial_call=True,
+    # )
+    # def toggle_select_adm0(_, feature, hideout):
+    #     if not feature:
+    #         return no_update
+    #     name = feature["properties"]["iso_3"]
+    #     if hideout["selected"] == name:
+    #         hideout["selected"] = ""
+    #     else:
+    #         hideout["selected"] = name
+    #     print(name)
+    #     print(hideout)
+    #     return name, hideout
 
     @app.callback(
-        Output("adm2", "options"),
-        Output("adm2", "value"),
-        Output("adm2", "disabled"),
-        Input("adm_level", "value"),
-        Input("adm1", "value"),
+        Output("hover-info", "children"),
+        Input("selected-pcode", "data"),
     )
-    def update_adm2_dropdown(adm_level, adm1):
-        if adm_level in ["0", "1"]:
-            return [{"label": "", "value": ""}], "", True
-        with engine.connect() as con:
-            adm = pd.read_sql_query(text("select * from app.adm"), con)
-        adm_f = adm[adm["ADM1_PCODE"] == adm1].sort_values(by="ADM2_NAME")
-        return (
-            [
-                {"label": name, "value": pcode}
-                for (pcode, name) in adm_f.groupby("ADM2_PCODE")["ADM2_NAME"]
-                .first()
-                .items()
-            ],
-            adm_f["ADM2_PCODE"].iloc[0],
-            False,
+    def show_selection(sel_pcode):
+        print("--")
+        print(sel_pcode)
+        return f"{sel_pcode}"
+
+    @app.callback(Output("map", "children"), Input("adm-level", "value"))
+    def set_adm_value(adm_level):
+        geojson = dl.GeoJSON(
+            url=f"assets/geo/bfa_adm{adm_level}.json",
+            id="geojson",
+            style=style_handle,
+            hideout=dict(selected="BF5201"),
+            hoverStyle=arrow_function(dict(weight=3, color="#666", dashArray="")),
+            zoomToBounds=True,
         )
+
+        # geojson_adm0 = dl.GeoJSON(
+        #     url="assets/geo/africa_adm0.json",
+        #     id="geojson-adm0",
+        #     style=adm0_style_handle,
+        #     hideout=dict(selected=""),
+        #     hoverStyle=arrow_function(dict(weight=2, color="#666", dashArray="")),
+        #     zoomToBounds=False,
+        # )
+        return [dl.TileLayer(url=URL, attribution=ATTRIBUTION), geojson]
 
     @app.callback(
         Output("timeseries", "figure"),
-        Output("rp", "figure"),
-        Input("adm_level", "value"),
-        Input("iso3", "value"),
-        Input("adm1", "value"),
-        Input("adm2", "value"),
-        prevent_initial_call=True,
+        Input("selected-pcode", "data"),
+        State("adm-level", "value"),
+        prevent_initial_call=False,
     )
-    def update_timeseries_rp_plots(adm_level, iso3, adm1_pcode, adm2_pcode):
-        pcode = iso3_to_pcode.get(iso3)
+    def update_timeseries_plot(pcode, adm_level):
+        iso3 = pcode_to_iso3.get(pcode[:2])
         start = time.time()
         print(f"Getting data for {iso3}...")
         query_exposure = text("select * from app.flood_exposure where iso3=:iso3")
@@ -78,7 +124,9 @@ def register_callbacks(app):
             df = pd.read_sql_query(query_exposure, con, params={"iso3": iso3})
             adm = pd.read_sql_query(query_adm, con)
             # TODO Get query working on db
-            adm = adm[adm["ADM0_PCODE"] == pcode]
+            # adm = adm[adm["ADM0_PCODE"] == pcode]
+
+            print(pcode)
 
         elapsed = time.time() - start
         print(f"Data retrieved in {elapsed: .4f} seconds")
@@ -128,9 +176,12 @@ def register_callbacks(app):
             seasonal_f = seasonal.groupby("eff_date")[val_col].sum().reset_index()
             peak_anytime_f = peak_anytime.groupby("date")[val_col].sum().reset_index()
         elif adm_level == "1":
-            adm_name = adm[adm["ADM1_PCODE"] == adm1_pcode].iloc[0]["ADM1_NAME"]
+            print("---")
+            print(adm)
+            print(pcode)
+            adm_name = adm[adm["ADM1_PCODE"] == pcode].iloc[0]["ADM1_NAME"]
             dff = (
-                df[df["ADM1_PCODE"] == adm1_pcode]
+                df[df["ADM1_PCODE"] == pcode]
                 .sort_values("date", ascending=False)
                 .groupby(["dayofyear", "date"])[val_col]
                 .sum()
@@ -139,26 +190,22 @@ def register_callbacks(app):
             )
             dff["eff_date"] = pd.to_datetime(dff["dayofyear"], format="%j")
             seasonal_f = (
-                seasonal[seasonal["ADM1_PCODE"] == adm1_pcode]
+                seasonal[seasonal["ADM1_PCODE"] == pcode]
                 .groupby("eff_date")[val_col]
                 .sum()
                 .reset_index()
             )
             peak_anytime_f = (
-                peak_anytime[peak_anytime["ADM1_PCODE"] == adm1_pcode]
+                peak_anytime[peak_anytime["ADM1_PCODE"] == pcode]
                 .groupby("date")[val_col]
                 .sum()
                 .reset_index()
             )
         elif adm_level == "2":
-            adm_name = adm[adm["ADM2_PCODE"] == adm2_pcode].iloc[0]["ADM2_NAME"]
-            dff = df[df["ADM2_PCODE"] == adm2_pcode].sort_values(
-                "date", ascending=False
-            )
-            seasonal_f = seasonal[seasonal["ADM2_PCODE"] == adm2_pcode]
-            peak_anytime_f = peak_anytime[
-                peak_anytime["ADM2_PCODE"] == adm2_pcode
-            ].copy()
+            adm_name = adm[adm["ADM2_PCODE"] == pcode].iloc[0]["ADM2_NAME"]
+            dff = df[df["ADM2_PCODE"] == pcode].sort_values("date", ascending=False)
+            seasonal_f = seasonal[seasonal["ADM2_PCODE"] == pcode]
+            peak_anytime_f = peak_anytime[peak_anytime["ADM2_PCODE"] == pcode].copy()
         else:
             raise ValueError("adm_level must be 0, 1, or 2")
 
@@ -290,4 +337,4 @@ def register_callbacks(app):
         fig_rp.update_xaxes(title="Return period (years)")
         elapsed = time.time() - start
         print(f"Processed data and made plots in {elapsed:.4f} seconds")
-        return fig_timeseries, fig_rp
+        return fig_timeseries
