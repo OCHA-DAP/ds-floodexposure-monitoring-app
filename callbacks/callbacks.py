@@ -1,9 +1,10 @@
 import time
 
 import dash_leaflet as dl
+import dash_mantine_components as dmc
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output, State, no_update
+from dash import Input, Output, State, dcc, no_update
 from dash_extensions.javascript import arrow_function, assign
 from sqlalchemy import text
 
@@ -109,12 +110,14 @@ def register_callbacks(app):
         return [dl.TileLayer(url=URL, attribution=ATTRIBUTION), geojson]
 
     @app.callback(
-        Output("timeseries", "figure"),
+        Output("figure-div", "children"),
         Input("selected-pcode", "data"),
         State("adm-level", "value"),
         prevent_initial_call=False,
     )
     def update_timeseries_plot(pcode, adm_level):
+        if not pcode:
+            return dmc.Center(dmc.Text("Select an admin region from the map"))
         iso3 = pcode_to_iso3.get(pcode[:2])
         start = time.time()
         print(f"Getting data for {iso3}...")
@@ -267,74 +270,8 @@ def register_callbacks(app):
         )
         fig_timeseries.update_xaxes(title="Date")
 
-        # rp plot
-        peak_anytime_f = peak_anytime_f.sort_values("rp")
-
-        fig_rp = go.Figure()
-        # all years
-        fig_rp.add_trace(
-            go.Scatter(
-                x=peak_anytime_f["rp"],
-                y=peak_anytime_f[val_col],
-                name="all years",
-                mode="lines",
-                line_color="black",
-            )
-        )
-        # 2024
-        peak_2024 = peak_anytime_f.set_index("date").loc[2024]
-        if peak_2024["rank"] == 1:
-            position = "bottom left"
-        elif peak_2024["rank"] == len(peak_anytime_f):
-            position = "top right"
-        else:
-            position = "bottom right"
-
-        fig_rp.add_trace(
-            go.Scatter(
-                x=[peak_2024["rp"]],
-                y=[peak_2024[val_col]],
-                text=f"2024:<br>Exposure = {int(peak_2024[val_col]):,} people<br>"
-                f"Return period = {peak_2024['rp']:.1f} years",
-                name="current year",
-                textposition=position,
-                mode="markers+text",
-                marker_color=CHD_GREEN,
-                textfont=dict(size=15, color=CHD_GREEN),
-                marker_size=10,
-            )
-        )
-
-        # other bad years
-        rp_peaks = peak_anytime_f[
-            (peak_anytime_f[f"{rp}yr_rp"]) & (peak_anytime_f["date"] != 2024)
-        ]
-        fig_rp.add_trace(
-            go.Scatter(
-                x=rp_peaks["rp"],
-                y=rp_peaks[val_col],
-                text=rp_peaks["date"],
-                name="≥3-yr RP years",
-                textposition="top left",
-                mode="markers+text",
-                marker_color="red",
-                textfont=dict(size=12, color="red"),
-                marker_size=5,
-            )
-        )
-
-        fig_rp.update_layout(
-            template="simple_white",
-            xaxis=dict(dtick=1),
-            height=600,
-            title=f"{adm_name} - return period<br><sup>(as of {most_recent_date_str})</sup>",
-            showlegend=False,
-            margin={"t": 50, "l": 0, "r": 0, "b": 0},
-        )
-        fig_rp.update_yaxes(
-            title="Total population exposed to flooding during the year"
-        )
-        fig_rp.update_xaxes(title="Return period (years)")
         elapsed = time.time() - start
         print(f"Processed data and made plots in {elapsed:.4f} seconds")
-        return fig_timeseries
+        return dcc.Graph(
+            id="timeseries", config={"displayModeBar": False}, figure=fig_timeseries
+        )

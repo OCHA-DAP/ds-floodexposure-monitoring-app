@@ -75,7 +75,7 @@ app.layout = html.Div(
                     id="charts",
                     style={"backgroundColor": "#D4DADC", "width": "50%"},
                     children=dmc.LoadingOverlay(
-                        dcc.Graph(id="timeseries", config={"displayModeBar": False})
+                        html.Div(id="figure-div"), style={"height": "80vh"}
                     ),
                 ),
             ],
@@ -91,7 +91,7 @@ app.layout = html.Div(
             },
         ),
         dcc.Store(id="selected-iso3", data="BFA"),
-        dcc.Store(id="selected-pcode", data="BF5201"),
+        dcc.Store(id="selected-pcode", data=""),  # "BF5201"
     ]
 )
 
