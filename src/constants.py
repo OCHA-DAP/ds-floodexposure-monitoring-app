@@ -1,4 +1,4 @@
-ISO3S = ["ner", "nga", "cmr", "tcd", "bfa", "eth"]
+ISO3S = ["ner", "nga", "cmr", "tcd", "bfa", "eth", "som"]
 
 iso3_to_pcode = {
     "ner": "NE",
@@ -7,6 +7,7 @@ iso3_to_pcode = {
     "tcd": "TD",
     "bfa": "BF",
     "eth": "ET",
+    "som": "SO",
 }
 
 CHD_GREEN = "#1bb580"
