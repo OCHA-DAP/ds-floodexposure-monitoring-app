@@ -3,18 +3,48 @@ from dash import html
 
 from constants import NAVBAR_HEIGHT
 
-navbar = dbc.NavbarSimple(
-    children=[
-        dbc.NavItem(
-            html.A(
-                html.Img(src="assets/centre_banner_greenbg.png", height=40),
-                href="https://centre.humdata.org/data-science/",
-            ),
+
+def navbar():
+    return dbc.Navbar(
+        dbc.Container(
+            [
+                html.A(
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                html.Img(
+                                    src="assets/centre_banner_greenbg.png", height=40
+                                )
+                            ),
+                            dbc.Col(
+                                dbc.NavbarBrand(
+                                    "Risk Monitoring Dashboard", className="ms-2"
+                                )
+                            ),
+                        ],
+                        align="center",
+                        className="g-0",
+                    ),
+                    href="https://centre.humdata.org/data-science/",
+                    style={"textDecoration": "none"},
+                ),
+                dbc.NavbarToggler(id="navbar-toggler", n_clicks=0),
+            ]
         ),
-    ],
-    style={"height": f"{NAVBAR_HEIGHT}px", "margin": "0px", "padding": "10px"},
-    brand="Flood Exposure Monitoring",
-    fixed="top",
-    color="primary",
-    dark=True,
-)
+        style={"height": f"{NAVBAR_HEIGHT}px", "margin": "0px", "padding": "10px"},
+        color="primary",
+        dark=True,
+    )
+
+
+def module_bar():
+    return html.Div(
+        "Flooding",
+        style={
+            "backgroundColor": "#007ce1",
+            "color": "white",
+            "padding": "6px",
+            "paddingLeft": "75px",
+            "fontSize": "24px",
+        },
+    )

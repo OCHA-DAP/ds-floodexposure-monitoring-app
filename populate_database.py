@@ -38,6 +38,7 @@ def load_data(engine):
             adm[f"ADM{adm_level}_FR"]
         )
     adm.drop(columns=["geometry"], inplace=True)
+    adm.columns = adm.columns.str.lower()
     adm.to_sql(
         "adm",
         schema="app",
@@ -55,16 +56,30 @@ def load_data(engine):
         print(f"Getting data for {iso3}")
         blob_name = floodscan_utils.get_blob_name(iso3, "exposure_tabular")
         df = blob_utils.load_parquet_from_blob(blob_name)
-        df = df.merge(adm[["ADM1_PCODE", "ADM2_PCODE"]])
+        df.columns = df.columns.str.lower()
+        df = df.merge(adm[["adm1_pcode", "adm2_pcode", "adm0_pcode"]])
         df = df.sort_values("date")
         df = (
-            df.groupby("ADM2_PCODE")
+            df.groupby("adm2_pcode")
             .apply(calculate_rolling, window=window, include_groups=False)
             .reset_index(level=0)
         )
         df["dayofyear"] = df["date"].dt.dayofyear
         df["eff_date"] = pd.to_datetime(df["dayofyear"], format="%j")
         df["iso3"] = iso3
+        df = df[
+            [
+                "iso3",
+                "adm0_pcode",
+                "adm1_pcode",
+                "adm2_pcode",
+                "date",
+                "eff_date",
+                "dayofyear",
+                "total_exposed",
+                "roll7",
+            ]
+        ]
         df.to_sql(
             "flood_exposure",
             schema="app",
