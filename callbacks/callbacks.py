@@ -147,7 +147,6 @@ def register_callbacks(app):
 
         # aggregation by admin
         if adm_level == "0":
-
             dff = (
                 df.groupby(["dayofyear", "date"])[val_col]
                 .sum()
