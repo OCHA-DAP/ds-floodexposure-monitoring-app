@@ -257,10 +257,11 @@ def register_callbacks(app):
         prevent_initial_call=False,
     )
     def update_info(pcode, adm_level):
+        print(pcode)
         if not pcode:
             return dmc.Center("No data selected"), "", ""
         query_exposure = text(
-            f"select * from app.flood_exposure where adm{adm_level}_pcode=:pcode and date=(select max(date) from app.flood_exposure)"
+            f"select * from app.flood_exposure where adm{adm_level}_pcode=:pcode and date=(select max(date) from app.flood_exposure where adm{adm_level}_pcode=:pcode)"
         )
         query_adm = text(f"select * from app.adm where adm{adm_level}_pcode=:pcode")
         with engine.connect() as con:
