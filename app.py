@@ -5,6 +5,7 @@ from layouts.content import content
 from layouts.navbar import module_bar, navbar
 
 app = Dash(__name__)
+server = app.server
 
 register_callbacks(app)
 app.layout = [navbar(), module_bar(), content(), dcc.Store(id="selected-pcode")]
