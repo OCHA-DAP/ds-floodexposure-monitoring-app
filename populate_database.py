@@ -80,11 +80,13 @@ def load_data(engine):
                 "roll7",
             ]
         ]
+        print(f"Dataframe is {len(df)} rows...")
         df.to_sql(
             "flood_exposure",
             schema="app",
             con=engine,
             if_exists="append",
+            chunksize=100000,
             index=False,
         )
 
