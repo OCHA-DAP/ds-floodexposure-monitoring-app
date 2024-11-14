@@ -1,0 +1,10 @@
+.loading_wrapper > div {
+    visibility: visible !important;
+}
+
+[class*="primary"] {
+    color: #fff;
+    background-color: #1bb580ff!important;
+    accent-color: #1bb580ff;
+    margin: 0.2rem;
+}
