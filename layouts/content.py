@@ -93,13 +93,17 @@ def info_container():
                 children="X year return-period event.",
                 style={"fontSize": "18px"},
             ),
+            dmc.Space(h=20),
             dbc.Accordion(
                 style={"fontSize": "12px"},
                 children=[
                     dbc.AccordionItem(
                         [
                             dcc.Markdown(
-                                "Flood extent data is from Floodscan. Population distributions are from WorldPop. Administrative boundaries are from FieldMaps."
+                                """
+                                Flood extent data is from [Floodscan](https://www.aer.com/weather-risk-management/floodscan-near-real-time-and-historical-flood-mapping/).
+                                Population distributions are from [WorldPop](https://www.worldpop.org/). Administrative boundaries are from [FieldMaps](https://fieldmaps.io/).
+                                """
                             ),
                         ],
                         title="Data Sources",
@@ -111,8 +115,8 @@ def info_container():
                     Daily flood exposure rasters are calculated by multiplying the gridded population (UN adjusted, 1km resolution, 2020)
                     by the 7-day rolling average of the flood extent (SFED_AREA, at a ≈10km resolution), masking out areas where the flood
                     extent is  less than 5% to reduce noise. The daily exposure rasters are then  aggregated to the admin2 level.
-                    This is similar to the method initially developed for the 2024 Somalia HNRP. Admin0 and admin1 exposure is calculated
-                    simply by summing the admin2 exposures.
+                    This is similar to the [method](https://docs.google.com/document/d/16-TrPdCF7dCx5thpdA7dXB8k1MUOJUovWaRVIjEJNUE/edit?tab=t.0#heading=h.rtvq16oq23gp)
+                    initially developed for the 2024 Somalia HNRP. Admin0 and admin1 exposure is calculated simply by summing the admin2 exposures.
                     """
                             ),
                             dcc.Markdown(
@@ -129,8 +133,8 @@ def info_container():
                     dbc.AccordionItem(
                         dcc.Markdown(
                             """
-                        The code used to calculate the daily flood exposure is available on GitHub here.
-                        The code used to calculate return period and run this app is available on GitHub here.
+                        The code used to calculate the daily flood exposure is available on GitHub [here](https://github.com/OCHA-DAP/ds-floodexposure-monitoring).
+                        The code used to calculate return period and run this app is available on GitHub [here](https://github.com/OCHA-DAP/ds-floodexposure-monitoring-app).
                         """
                         ),
                         title="Resources",
