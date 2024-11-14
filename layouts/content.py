@@ -160,7 +160,7 @@ def map_container():
                 id="map",
             ),
             dmc.Select(
-                label="Select admin level",
+                label="Toggle admin level",
                 id="adm-level",
                 value="1",
                 data=[

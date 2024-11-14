@@ -39,7 +39,7 @@ def navbar():
 
 def module_bar():
     return html.Div(
-        "Flooding",
+        "Flood Exposure Module",
         style={
             "backgroundColor": "#007ce1",
             "color": "white",

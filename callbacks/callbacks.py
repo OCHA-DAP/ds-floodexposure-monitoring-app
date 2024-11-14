@@ -91,7 +91,7 @@ def register_callbacks(app):
         if not pcode:
             return [
                 dmc.Space(h=100),
-                dmc.Center(html.Div("Select an admin region from the map above")),
+                dmc.Center(html.Div("Select a location from the map above")),
             ]
         iso3 = pcode_to_iso3.get(pcode[:2])
         start = time.time()
@@ -233,7 +233,7 @@ def register_callbacks(app):
             template="simple_white",
             xaxis=dict(tickformat="%b %d", dtick="M1"),
             legend_title="Year<br><sup>(click to toggle)</sup>",
-            height=273,
+            height=265,
             margin={"t": 10, "l": 0, "r": 0, "b": 0},
             font=dict(family="Arial, sans-serif"),
         ),
@@ -257,9 +257,8 @@ def register_callbacks(app):
         prevent_initial_call=False,
     )
     def update_info(pcode, adm_level):
-        print(pcode)
         if not pcode:
-            return dmc.Center("No data selected"), "", ""
+            return dmc.Center("No location selected"), "", ""
         query_exposure = text(
             f"select * from app.flood_exposure where adm{adm_level}_pcode=:pcode and date=(select max(date) from app.flood_exposure where adm{adm_level}_pcode=:pcode)"
         )
