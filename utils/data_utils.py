@@ -1,5 +1,11 @@
+import time
+
 import pandas as pd
 from sqlalchemy import text
+
+from utils.log_utils import get_logger
+
+logger = get_logger("data")
 
 
 def fetch_flood_data(engine, pcode, adm_level):
@@ -8,12 +14,15 @@ def fetch_flood_data(engine, pcode, adm_level):
         f"select * from app.flood_exposure where adm{adm_level}_pcode=:pcode"
     )
     query_adm = text("select * from app.adm")
-
+    logger.info(f"Getting flood exposure data for {pcode}...")
+    start = time.time()
     with engine.connect() as con:
         df_exposure = pd.read_sql_query(query_exposure, con, params={"pcode": pcode})
         df_adm = pd.read_sql_query(query_adm, con)
         df_adm = df_adm[df_adm[f"adm{adm_level}_pcode"] == pcode]
 
+    elapsed = time.time() - start
+    logger.debug(f"Retrieved {len(df_exposure)} rows from database in {elapsed:.2f}s")
     return df_exposure, df_adm
 
 
@@ -83,3 +92,24 @@ def calculate_return_periods(df_peaks, rp=3):
     df_peaks[f"{rp}yr_rp"] = df_peaks["rp"] >= rp
     peak_years = df_peaks[df_peaks[f"{rp}yr_rp"]]["date"].to_list()
     return df_peaks.sort_values(by="rp"), peak_years
+
+
+def get_summary(df_exposure, df_adm, adm_level, window=7):
+    name = df_adm.iloc[0][f"adm{adm_level}_name"]
+    max_date = f"{df_exposure['date'].max():%Y-%m-%d}"
+    val_col = f"roll{window}"
+
+    df_ = df_exposure[df_exposure["date"] == max_date]
+
+    people_exposed = int(
+        df_.groupby([f"adm{adm_level}_pcode"])[val_col]
+        .sum()
+        .reset_index()
+        .iloc[0][val_col]
+    )
+    people_exposed_formatted = "{:,}".format(people_exposed)
+
+    return (
+        name,
+        f"{people_exposed_formatted} people exposed to flooding as of {max_date}.",
+    )

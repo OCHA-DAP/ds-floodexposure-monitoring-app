@@ -4,9 +4,13 @@ from callbacks.callbacks import register_callbacks
 from layouts.content import content
 from layouts.modal import disclaimer_modal
 from layouts.navbar import module_bar, navbar
+from utils.log_utils import setup_logging
 
 app = Dash(__name__, update_title=None)
 server = app.server
+app.title = "Flood Exposure"
+
+logger = setup_logging()
 
 register_callbacks(app)
 app.layout = [

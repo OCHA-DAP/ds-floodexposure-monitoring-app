@@ -109,7 +109,7 @@ def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
         font=dict(family="Arial, sans-serif"),
     )
-    fig.update_yaxes(title="Population exposed to flooding")
+    fig.update_yaxes(title="Annual population exposed to flooding")
     fig.update_xaxes(title="Return period (years)")
 
     return fig

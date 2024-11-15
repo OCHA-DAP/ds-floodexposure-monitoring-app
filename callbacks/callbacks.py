@@ -1,17 +1,16 @@
-import time
-
 import dash_leaflet as dl
 import dash_mantine_components as dmc
-import pandas as pd
 from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
-from sqlalchemy import text
 
 # TODO: Be more careful with engine?
 from constants import ATTRIBUTION, CHD_GREEN, URL, engine
 from utils.chart_utils import create_return_period_plot, create_timeseries_plot
 from utils.data_utils import (calculate_return_periods, fetch_flood_data,
-                              process_flood_data)
+                              get_summary, process_flood_data)
+from utils.log_utils import get_logger
+
+logger = get_logger("callbacks")
 
 style_handle = assign(
     """
@@ -87,6 +86,8 @@ def register_callbacks(app):
     @app.callback(
         Output("exposure-chart", "children"),
         Output("rp-chart", "children"),
+        Output("place-name", "children"),
+        Output("num-exposed", "children"),
         Input("selected-pcode", "data"),
         State("adm-level", "value"),
         prevent_initial_call=False,
@@ -97,17 +98,24 @@ def register_callbacks(app):
                 dmc.Space(h=100),
                 dmc.Center(html.Div("Select a location from the map above")),
             ]
-            return blank_children, blank_children
-
-        # Fetch data
-        start = time.time()
+            return (
+                blank_children,
+                blank_children,
+                dmc.Center("No location selected"),
+                "",
+            )
         df_exposure, df_adm = fetch_flood_data(engine, pcode, adm_level)
 
         if len(df_exposure) == 0:
-            return [
-                dmc.Space(h=100),
-                dmc.Center(html.Div("No data available for selected location")),
-            ]
+            logger.warning(f"No data available for {pcode}")
+            return (
+                [
+                    dmc.Space(h=100),
+                    dmc.Center(html.Div("No data available for selected location")),
+                ],
+                dmc.Center("No data available"),
+                "",
+            )
 
         # Process data
         df_processed, df_seasonal, df_peaks = process_flood_data(
@@ -125,43 +133,8 @@ def register_callbacks(app):
             config={"displayModeBar": False}, figure=fig_timeseries
         )
         rp_chart = dcc.Graph(config={"displayModeBar": False}, figure=fig_rp)
-
-        return exposure_chart, rp_chart
-
-    @app.callback(
-        Output("place-name", "children"),
-        Output("num-exposed", "children"),
-        Input("selected-pcode", "data"),
-        State("adm-level", "value"),
-        prevent_initial_call=False,
-    )
-    def update_info(pcode, adm_level):
-        if not pcode:
-            return dmc.Center("No location selected"), ""
-        query_exposure = text(
-            f"select * from app.flood_exposure where adm{adm_level}_pcode=:pcode and date=(select max(date) from app.flood_exposure where adm{adm_level}_pcode=:pcode)"
-        )
-        query_adm = text(f"select * from app.adm where adm{adm_level}_pcode=:pcode")
-        with engine.connect() as con:
-            df = pd.read_sql_query(query_exposure, con, params={"pcode": pcode})
-            adm = pd.read_sql_query(query_adm, con, params={"pcode": pcode})
-
-        if len(df) == 0:
-            return dmc.Center("No data available"), "", ""
-
-        max_date = df.iloc[0]["date"].strftime("%Y-%m-%d")
-        people_exposed = int(
-            df.groupby([f"adm{adm_level}_pcode"])["roll7"]
-            .sum()
-            .reset_index()
-            .iloc[0]["roll7"]
-        )
-        people_exposed_formatted = "{:,}".format(people_exposed)
-        name = adm.iloc[0][f"adm{adm_level}_name"]
-        return (
-            name,
-            f"{people_exposed_formatted} people exposed to flooding as of {max_date}.",
-        )
+        name, exposed_summary = get_summary(df_exposure, df_adm, adm_level)
+        return exposure_chart, rp_chart, name, exposed_summary
 
     # TODO: Would be better as a clientside callback, but couldn't seem to get it to work...
     @app.callback(Output("hover-place-name", "children"), Input("geojson", "hoverData"))

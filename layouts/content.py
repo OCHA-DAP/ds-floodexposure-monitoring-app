@@ -194,7 +194,7 @@ def chart_container():
     )
     return dbc.Tabs(
         [
-            dbc.Tab(exposure_tab, label="Timeseries", tabClassName="ms-auto"),
+            dbc.Tab(exposure_tab, label="Time series", tabClassName="ms-auto"),
             dbc.Tab(severity_tab, label="Return Period"),
         ]
     )
