@@ -152,7 +152,6 @@ def map_container():
                 id="map",
             ),
             dmc.Select(
-                label="Toggle admin level",
                 id="adm-level",
                 value="1",
                 data=[
@@ -161,9 +160,18 @@ def map_container():
                     {"value": "2", "label": "Admin 2"},
                 ],
                 style={
-                    "width": 200,
+                    "width": 130,
                     "position": "absolute",
-                    "top": "20px",
+                    "top": "10px",
+                    "right": "20px",
+                    "zIndex": 999,
+                },
+            ),
+            dmc.Text(
+                id="hover-place-name",
+                style={
+                    "position": "absolute",
+                    "top": "50px",
                     "right": "20px",
                     "zIndex": 999,
                 },

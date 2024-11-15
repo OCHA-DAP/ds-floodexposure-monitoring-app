@@ -162,3 +162,9 @@ def register_callbacks(app):
             name,
             f"{people_exposed_formatted} people exposed to flooding as of {max_date}.",
         )
+
+    # TODO: Would be better as a clientside callback, but couldn't seem to get it to work...
+    @app.callback(Output("hover-place-name", "children"), Input("geojson", "hoverData"))
+    def info_hover(feature):
+        if feature:
+            return feature["properties"]["name"]
