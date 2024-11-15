@@ -82,17 +82,19 @@ def register_callbacks(app):
         ]
 
     @app.callback(
-        Output("figure-div", "children"),
+        Output("exposure-chart", "children"),
+        Output("rp-chart", "children"),
         Input("selected-pcode", "data"),
         State("adm-level", "value"),
         prevent_initial_call=False,
     )
     def update_timeseries_plot(pcode, adm_level):
         if not pcode:
-            return [
+            blank_children = [
                 dmc.Space(h=100),
                 dmc.Center(html.Div("Select a location from the map above")),
             ]
+            return blank_children, blank_children
         iso3 = pcode_to_iso3.get(pcode[:2])
         start = time.time()
         print(f"Getting data for {iso3}...")
@@ -119,6 +121,7 @@ def register_callbacks(app):
         # initial processing
         window = 7
         val_col = f"roll{window}"
+        most_recent_date_str = f"{df['date'].max():%Y-%m-%d}"
 
         seasonal = (
             df[df["date"].dt.year < 2024]
@@ -192,6 +195,7 @@ def register_callbacks(app):
         peak_anytime_f["rp"] = len(peak_anytime_f) / peak_anytime_f["rank"]
         peak_anytime_f[f"{rp}yr_rp"] = peak_anytime_f["rp"] >= rp
         peak_years = peak_anytime_f[peak_anytime_f[f"{rp}yr_rp"]]["date"].to_list()
+        peak_anytime_f = peak_anytime_f.sort_values(by="rp")
 
         # timeseries plot
         fig_timeseries = go.Figure()
@@ -233,7 +237,7 @@ def register_callbacks(app):
             template="simple_white",
             xaxis=dict(tickformat="%b %d", dtick="M1"),
             legend_title="Year<br><sup>(click to toggle)</sup>",
-            height=265,
+            height=250,
             margin={"t": 10, "l": 0, "r": 0, "b": 0},
             font=dict(family="Arial, sans-serif"),
         ),
@@ -242,11 +246,77 @@ def register_callbacks(app):
         )
         fig_timeseries.update_xaxes(title="Date")
 
+        fig_rp = go.Figure()
+        # all years
+        fig_rp.add_trace(
+            go.Scatter(
+                x=peak_anytime_f["rp"],
+                y=peak_anytime_f[val_col],
+                name="all years",
+                mode="lines",
+                line_color="black",
+            )
+        )
+        # 2024
+        peak_2024 = peak_anytime_f.set_index("date").loc[2024]
+        if peak_2024["rank"] == 1:
+            position = "bottom left"
+        elif peak_2024["rank"] == len(peak_anytime_f):
+            position = "top right"
+        else:
+            position = "bottom right"
+
+        fig_rp.add_trace(
+            go.Scatter(
+                x=[peak_2024["rp"]],
+                y=[peak_2024[val_col]],
+                name="current year",
+                mode="markers+text",
+                text="2024",
+                textposition=position,
+                marker_color=CHD_GREEN,
+                textfont=dict(size=15, color=CHD_GREEN),
+                marker_size=10,
+            )
+        )
+
+        # other bad years
+        rp_peaks = peak_anytime_f[
+            (peak_anytime_f[f"{rp}yr_rp"]) & (peak_anytime_f["date"] != 2024)
+        ]
+        fig_rp.add_trace(
+            go.Scatter(
+                x=rp_peaks["rp"],
+                y=rp_peaks[val_col],
+                text=rp_peaks["date"],
+                name="≥3-yr RP years",
+                textposition="top left",
+                mode="markers+text",
+                marker_color="red",
+                textfont=dict(size=12, color="red"),
+                marker_size=5,
+            )
+        )
+
+        fig_rp.update_layout(
+            template="simple_white",
+            xaxis=dict(dtick=1),
+            height=250,
+            showlegend=False,
+            margin={"t": 10, "l": 0, "r": 0, "b": 0},
+            font=dict(family="Arial, sans-serif"),
+        )
+        fig_rp.update_yaxes(title="Population exposed to flooding")
+        fig_rp.update_xaxes(title="Return period (years)")
+
         elapsed = time.time() - start
         print(f"Processed data and made plots in {elapsed:.4f} seconds")
-        return dcc.Graph(
-            id="timeseries", config={"displayModeBar": False}, figure=fig_timeseries
+
+        exposure_chart = dcc.Graph(
+            config={"displayModeBar": False}, figure=fig_timeseries
         )
+        rp_chart = dcc.Graph(config={"displayModeBar": False}, figure=fig_rp)
+        return exposure_chart, rp_chart
 
     @app.callback(
         Output("place-name", "children"),

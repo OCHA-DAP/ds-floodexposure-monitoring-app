@@ -42,7 +42,7 @@ def content():
                             dbc.Col(map_container()),
                             style={
                                 "backgroundColor": "white",
-                                "height": f"calc(100% - {275 + GUTTER}px)",
+                                "height": f"calc(100% - {300 + GUTTER}px)",
                                 "border": "1px solid #dbdbdb",
                                 "minHeight": "150px",
                             },
@@ -54,7 +54,7 @@ def content():
                             style={
                                 "border": "1px solid #dbdbdb",
                                 "backgroundColor": "white",
-                                "height": "275px",
+                                "height": "300px",
                                 "marginTop": f"{GUTTER}px",
                                 "padding": "5px",
                             },
@@ -182,16 +182,19 @@ def map_container():
 
 
 def chart_container():
-    return html.Div(
-        id="chart-container",
-        children=[
-            html.Div(
-                id="charts",
-                style={"backgroundColor": "white", "width": "100%", "height": "100%"},
-                children=dmc.LoadingOverlay(
-                    html.Div(id="figure-div"), style={"height": "100%"}
-                ),
-            ),
-        ],
-        style={"width": "100%", "height": "100%", "position": "relative"},
+    exposure_tab = html.Div(
+        style={"backgroundColor": "white", "width": "100%", "height": "100%"},
+        children=dmc.LoadingOverlay(
+            html.Div(id="exposure-chart"), style={"height": "100%"}
+        ),
+    )
+    severity_tab = html.Div(
+        style={"backgroundColor": "white", "width": "100%", "height": "100%"},
+        children=dmc.LoadingOverlay(html.Div(id="rp-chart"), style={"height": "100%"}),
+    )
+    return dbc.Tabs(
+        [
+            dbc.Tab(exposure_tab, label="Timeseries", tabClassName="ms-auto"),
+            dbc.Tab(severity_tab, label="Return Period"),
+        ]
     )
