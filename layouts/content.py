@@ -78,19 +78,11 @@ def info_container():
         [
             html.Div(
                 id="place-name",
-                children="Ethiopia",
                 style={"fontWeight": "bold", "fontSize": "24px"},
             ),
             dmc.Space(h=20),
             html.Div(
                 id="num-exposed",
-                children="XXX, XXX people currently exposed to flooding.",
-                style={"fontSize": "18px"},
-            ),
-            dmc.Space(h=10),
-            html.Div(
-                id="return-period",
-                children="X year return-period event.",
                 style={"fontSize": "18px"},
             ),
             dmc.Space(h=20),
