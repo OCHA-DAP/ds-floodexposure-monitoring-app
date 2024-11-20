@@ -151,4 +151,6 @@ src/test_gdrive.py
 sandbox
 
 temp*
+*/data/*
+tmp/*
 pipelines/data
