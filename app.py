@@ -1,21 +1,26 @@
-import dash_bootstrap_components as dbc
-from dash import Dash
+from dash import Dash, dcc
 
 from callbacks.callbacks import register_callbacks
-from data.load_data import load_data
-from endpoints.endpoints import register_endpoints
-from index import layout
+from layouts.content import content
+from layouts.modal import disclaimer_modal
+from layouts.navbar import module_bar, navbar
+from utils.log_utils import setup_logging
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-app.title = "Flood Exposure Monitoring"
-app._favicon = "assets/favicon.ico"
+app = Dash(__name__, update_title=None)
 server = app.server
+app.title = "Flood Exposure"
 
-app.data = load_data()
+logger = setup_logging()
 
-app.layout = layout(app)
 register_callbacks(app)
-register_endpoints(app)
+app.layout = [
+    disclaimer_modal(),
+    navbar(),
+    module_bar(),
+    content(),
+    dcc.Store(id="selected-pcode"),
+]
+
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run_server(debug=True)
