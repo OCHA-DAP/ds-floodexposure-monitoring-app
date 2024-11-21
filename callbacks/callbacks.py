@@ -108,11 +108,13 @@ def register_callbacks(app):
 
         if len(df_exposure) == 0:
             logger.warning(f"No data available for {pcode}")
+            empty_children = [
+                dmc.Space(h=100),
+                dmc.Center(html.Div("No data available for selected location")),
+            ]
             return (
-                [
-                    dmc.Space(h=100),
-                    dmc.Center(html.Div("No data available for selected location")),
-                ],
+                empty_children,
+                empty_children,
                 dmc.Center("No data available"),
                 "",
             )
