@@ -29,7 +29,8 @@ def navbar():
                     style={"textDecoration": "none"},
                 ),
                 dbc.NavbarToggler(id="navbar-toggler", n_clicks=0),
-            ]
+            ],
+            fluid=True,
         ),
         style={"height": f"{NAVBAR_HEIGHT}px", "margin": "0px", "padding": "10px"},
         color="primary",
