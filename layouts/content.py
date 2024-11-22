@@ -42,7 +42,7 @@ def content():
                             dbc.Col(map_container()),
                             style={
                                 "backgroundColor": "white",
-                                "height": f"calc(100% - {300 + GUTTER}px)",
+                                "height": f"calc(100% - {400 + GUTTER}px)",
                                 "border": "1px solid #dbdbdb",
                                 "minHeight": "150px",
                             },
@@ -54,7 +54,7 @@ def content():
                             style={
                                 "border": "1px solid #dbdbdb",
                                 "backgroundColor": "white",
-                                "height": "300px",
+                                "height": "400px",
                                 "marginTop": f"{GUTTER}px",
                                 "padding": "5px",
                             },
