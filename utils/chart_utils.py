@@ -36,7 +36,7 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years, CHD_GREEN):
         template="simple_white",
         xaxis=dict(tickformat="%b %d", dtick="M1"),
         legend_title="Year<br><sup>(click to toggle)</sup>",
-        height=350,
+        height=340,
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
         font=dict(family="Arial, sans-serif"),
     )
@@ -104,7 +104,7 @@ def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
     fig.update_layout(
         template="simple_white",
         xaxis=dict(dtick=1),
-        height=350,
+        height=340,
         showlegend=False,
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
         font=dict(family="Arial, sans-serif"),
