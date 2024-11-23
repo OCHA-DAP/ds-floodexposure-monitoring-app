@@ -71,15 +71,17 @@ def info_container():
             html.Div(
                 id="place-name",
                 style={"fontWeight": "bold", "fontSize": "24px"},
+                className="header",
             ),
             dmc.Space(h=20),
             html.Div(
                 id="num-exposed",
                 style={"fontSize": "18px"},
             ),
+            html.Div(id="test"),
             dmc.Space(h=20),
             dbc.Accordion(
-                style={"fontSize": "12px"},
+                style={"fontSize": "14px"},
                 children=[
                     dbc.AccordionItem(
                         [

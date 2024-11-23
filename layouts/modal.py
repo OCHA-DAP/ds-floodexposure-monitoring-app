@@ -5,7 +5,9 @@ from dash import dcc
 def disclaimer_modal():
     return dbc.Modal(
         [
-            dbc.ModalHeader(dbc.ModalTitle("Disclaimer"), close_button=True),
+            dbc.ModalHeader(
+                dbc.ModalTitle("Disclaimer", className="header"), close_button=True
+            ),
             dbc.ModalBody(
                 [
                     dcc.Markdown(
