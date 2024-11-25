@@ -4,7 +4,7 @@ from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
 
 # TODO: Be more careful with engine?
-from constants import ATTRIBUTION, CHD_GREEN, URL, engine
+from constants import ATTRIBUTION, CHD_GREEN, URL, URL_LABELS, engine
 from utils.chart_utils import create_return_period_plot, create_timeseries_plot
 from utils.data_utils import (calculate_return_periods, fetch_flood_data,
                               get_summary, process_flood_data)
@@ -81,6 +81,11 @@ def register_callbacks(app):
             dl.TileLayer(url=URL, attribution=ATTRIBUTION),
             dl.Pane(adm0, style={"zIndex": 1001}, name="adm0"),
             dl.Pane(geojson, style={"zIndex": 1000}, name="sel"),
+            dl.Pane(
+                dl.TileLayer(url=URL_LABELS, attribution=ATTRIBUTION),
+                name="tile",
+                style={"zIndex": 1002},
+            ),
         ]
 
     @app.callback(

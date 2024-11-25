@@ -14,11 +14,12 @@ def navbar():
                             dbc.Col(
                                 html.Img(
                                     src="assets/centre_banner_greenbg.png", height=40
-                                )
+                                ),
                             ),
                             dbc.Col(
                                 dbc.NavbarBrand(
-                                    "Risk Monitoring Dashboard", className="ms-2"
+                                    "Risk Monitoring Dashboard".upper(),
+                                    className=["ms-2", "header"],
                                 )
                             ),
                         ],
@@ -29,7 +30,8 @@ def navbar():
                     style={"textDecoration": "none"},
                 ),
                 dbc.NavbarToggler(id="navbar-toggler", n_clicks=0),
-            ]
+            ],
+            fluid=True,
         ),
         style={"height": f"{NAVBAR_HEIGHT}px", "margin": "0px", "padding": "10px"},
         color="primary",
@@ -45,6 +47,7 @@ def module_bar():
             "color": "white",
             "padding": "6px",
             "paddingLeft": "75px",
-            "fontSize": "24px",
+            "fontSize": "20px",
         },
+        className="header",
     )

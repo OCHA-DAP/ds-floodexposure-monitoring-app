@@ -6,7 +6,7 @@ from dash import dcc, html
 from constants import ATTRIBUTION, URL
 
 NAVBAR_HEIGHT = 60 + 48
-GUTTER = 15
+GUTTER = 10
 
 
 def content():
@@ -15,26 +15,16 @@ def content():
             [
                 # ---- Side info bar ----
                 dbc.Col(
-                    width=3,
-                    style={
-                        "border": "1px solid #dbdbdb",
-                        "backgroundColor": "white",
-                        "height": f"calc(100vh - {NAVBAR_HEIGHT + (GUTTER * 2)}px)",
-                        "margin": f"{GUTTER}px",
-                        "marginRight": f"{GUTTER / 2}px",
-                        "minHeight": "500px",
-                    },
+                    width=2,
                     className="g-0",
                     children=info_container(),
                 ),
                 # ---- Map / chart column ----
                 dbc.Col(
-                    width=True,
+                    width=10,
                     style={
                         "backgroundColor": "#f5f5f5",
-                        "height": f"calc(100vh - {NAVBAR_HEIGHT + (GUTTER * 2)}px)",
-                        "margin": f"{GUTTER}px",
-                        "marginLeft": f"{GUTTER / 2}px",
+                        "height": f"calc(100vh - {NAVBAR_HEIGHT}px)",
                     },
                     children=[
                         # -- Map --
@@ -42,9 +32,10 @@ def content():
                             dbc.Col(map_container()),
                             style={
                                 "backgroundColor": "white",
-                                "height": f"calc(100% - {300 + GUTTER}px)",
+                                "height": f"calc(100% - {400 + GUTTER * 3}px)",
                                 "border": "1px solid #dbdbdb",
                                 "minHeight": "150px",
+                                "marginTop": f"{GUTTER}px",
                             },
                             className="g-0",
                         ),
@@ -54,9 +45,10 @@ def content():
                             style={
                                 "border": "1px solid #dbdbdb",
                                 "backgroundColor": "white",
-                                "height": "300px",
+                                "height": "400px",
                                 "marginTop": f"{GUTTER}px",
-                                "padding": "5px",
+                                "marginBottom": f"{GUTTER}px",
+                                "padding": "10px",
                             },
                             className="g-0",
                         ),
@@ -67,7 +59,7 @@ def content():
         ),
         style={
             "backgroundColor": "red",
-            "height": f"calc(100vh - {NAVBAR_HEIGHT}px)",
+            "height": f"calc(100vh - {NAVBAR_HEIGHT + GUTTER}px)",
         },
         fluid=True,
     )
@@ -79,15 +71,17 @@ def info_container():
             html.Div(
                 id="place-name",
                 style={"fontWeight": "bold", "fontSize": "24px"},
+                className="header",
             ),
             dmc.Space(h=20),
             html.Div(
                 id="num-exposed",
                 style={"fontSize": "18px"},
             ),
+            html.Div(id="test"),
             dmc.Space(h=20),
             dbc.Accordion(
-                style={"fontSize": "12px"},
+                style={"fontSize": "14px"},
                 children=[
                     dbc.AccordionItem(
                         [
@@ -136,7 +130,15 @@ def info_container():
             ),
         ],
         id="info-container",
-        style={"padding": "15px"},
+        style={
+            "padding": "15px",
+            "border": "1px solid #dbdbdb",
+            "backgroundColor": "white",
+            "height": f"calc(100vh - {NAVBAR_HEIGHT + GUTTER * 2}px)",
+            "minHeight": "500px",
+            "marginTop": GUTTER,
+            "marginLeft": GUTTER,
+        },
     )
 
 
@@ -196,5 +198,5 @@ def chart_container():
         [
             dbc.Tab(exposure_tab, label="Time series", tabClassName="ms-auto"),
             dbc.Tab(severity_tab, label="Return Period"),
-        ]
+        ],
     )
