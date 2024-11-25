@@ -7,6 +7,7 @@ load_dotenv()
 
 
 ISO3S = ["ner", "nga", "cmr", "tcd", "bfa", "eth"]
+ADMS = [0, 1, 2]
 
 iso3_to_pcode = {
     "ner": "NE",
@@ -32,6 +33,10 @@ NAVBAR_HEIGHT = 60
 
 AZURE_DB_PW_DEV = os.getenv("AZURE_DB_PW_DEV")
 AZURE_DB_UID = os.getenv("AZURE_DB_UID")
+
+PROD_BLOB_SAS = os.getenv("PROD_BLOB_SAS")
+DEV_BLOB_SAS = os.getenv("DEV_BLOB_SAS")
+
 engine = create_engine(
     f"postgresql+psycopg2://{AZURE_DB_UID}:{AZURE_DB_PW_DEV}@chd-rasterstats-dev.postgres.database.azure.com/postgres"
 )
