@@ -48,7 +48,9 @@ def load_data(engine):
     )
 
     def calculate_rolling(group, window=7):
-        group[f"roll{window}"] = group["total_exposed"].rolling(window=window).mean()
+        group[f"roll{window}"] = (
+            group["total_exposed"].rolling(window=window).mean()
+        )
         return group
 
     window = 7
@@ -94,7 +96,7 @@ def load_data(engine):
 if __name__ == "__main__":
     print("Populating database...")
     engine = create_engine(
-        f"postgresql+psycopg2://{AZURE_DB_UID}:{AZURE_DB_PW_DEV}@chd-rasterstats-dev.postgres.database.azure.com/postgres"
+        f"postgresql+psycopg2://{AZURE_DB_UID}:{AZURE_DB_PW_DEV}@chd-rasterstats-dev.postgres.database.azure.com/postgres"  # noqa
     )
     data = load_data(engine)
     print("Database update completed.")

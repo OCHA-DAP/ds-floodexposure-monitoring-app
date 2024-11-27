@@ -13,7 +13,8 @@ def navbar():
                         [
                             dbc.Col(
                                 html.Img(
-                                    src="assets/centre_banner_greenbg.png", height=40
+                                    src="assets/centre_banner_greenbg.png",
+                                    height=40,
                                 ),
                             ),
                             dbc.Col(
@@ -33,7 +34,11 @@ def navbar():
             ],
             fluid=True,
         ),
-        style={"height": f"{NAVBAR_HEIGHT}px", "margin": "0px", "padding": "10px"},
+        style={
+            "height": f"{NAVBAR_HEIGHT}px",
+            "margin": "0px",
+            "padding": "10px",
+        },
         color="primary",
         dark=True,
     )
