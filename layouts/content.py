@@ -89,7 +89,7 @@ def info_container():
                                 """
                                 Flood extent data is from [Floodscan](https://www.aer.com/weather-risk-management/floodscan-near-real-time-and-historical-flood-mapping/).
                                 Population distributions are from [WorldPop](https://www.worldpop.org/). Administrative boundaries are from [FieldMaps](https://fieldmaps.io/).
-                                """
+                                """  # noqa
                             ),
                         ],
                         title="Data Sources",
@@ -103,7 +103,7 @@ def info_container():
                     extent is  less than 5% to reduce noise. The daily exposure rasters are then  aggregated to the admin2 level.
                     This is similar to the [method](https://docs.google.com/document/d/16-TrPdCF7dCx5thpdA7dXB8k1MUOJUovWaRVIjEJNUE/edit?tab=t.0#heading=h.rtvq16oq23gp)
                     initially developed for the 2024 Somalia HNRP. Admin0 and admin1 exposure is calculated simply by summing the admin2 exposures.
-                    """
+                    """  # noqa
                             ),
                             dcc.Markdown(
                                 """
@@ -111,7 +111,7 @@ def info_container():
                     for all admin levels is  taken taken as the maximum instantaneous flood exposure for any day in  the year
                     (up to the current day of the year). Note that this does not  take into account flooding in one part of the
                     area on one day and  another part on another day. In this case, the yearly maximum would be  the maximum of these values, not the sum.
-                    """
+                    """  # noqa
                             ),
                         ],
                         title="Methodology",
@@ -121,7 +121,7 @@ def info_container():
                             """
                         The code used to calculate the daily flood exposure is available on GitHub [here](https://github.com/OCHA-DAP/ds-floodexposure-monitoring).
                         The code used to calculate return period and run this app is available on GitHub [here](https://github.com/OCHA-DAP/ds-floodexposure-monitoring-app).
-                        """
+                        """  # noqa
                         ),
                         title="Resources",
                     ),
@@ -192,7 +192,9 @@ def chart_container():
     )
     severity_tab = html.Div(
         style={"backgroundColor": "white", "width": "100%", "height": "100%"},
-        children=dmc.LoadingOverlay(html.Div(id="rp-chart"), style={"height": "100%"}),
+        children=dmc.LoadingOverlay(
+            html.Div(id="rp-chart"), style={"height": "100%"}
+        ),
     )
     return dbc.Tabs(
         [

@@ -6,7 +6,8 @@ def disclaimer_modal():
     return dbc.Modal(
         [
             dbc.ModalHeader(
-                dbc.ModalTitle("Disclaimer", className="header"), close_button=True
+                dbc.ModalTitle("Disclaimer", className="header"),
+                close_button=True,
             ),
             dbc.ModalBody(
                 [

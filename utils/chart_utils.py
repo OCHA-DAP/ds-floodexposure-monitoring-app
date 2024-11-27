@@ -3,6 +3,8 @@ import plotly.graph_objects as go
 
 def create_timeseries_plot(df_seasonal, df_processed, peak_years, CHD_GREEN):
     """Create timeseries plot using Plotly."""
+    df_seasonal = df_seasonal.sort_values("eff_date")
+    df_processed = df_processed.sort_values("date", ascending=False)
     fig = go.Figure()
 
     # Add seasonal average
@@ -18,7 +20,13 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years, CHD_GREEN):
 
     # Add yearly traces
     for year in df_processed["date"].dt.year.unique():
-        color = CHD_GREEN if year == 2024 else "red" if year in peak_years else "grey"
+        color = (
+            CHD_GREEN
+            if year == 2024
+            else "red"
+            if year in peak_years
+            else "grey"
+        )
         linewidth = 3 if year == 2024 else 0.2
 
         df_year = df_processed[df_processed["date"].dt.year == year]
@@ -40,8 +48,11 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years, CHD_GREEN):
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
         font=dict(family="Arial, sans-serif"),
     )
-    fig.update_yaxes(rangemode="tozero", title="Population exposed to flooding")
-    fig.update_xaxes(title="Date")
+    fig.update_yaxes(
+        rangemode="tozero", title="Population exposed to flooding"
+    )
+    # set x max to year 1900
+    fig.update_xaxes(title="Date", range=["1900-01-01", "1900-12-31"])
 
     return fig
 
@@ -86,7 +97,9 @@ def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
     )
 
     # Add other significant years
-    df_rp_peaks = df_peaks[(df_peaks[f"{rp}yr_rp"]) & (df_peaks["date"] != 2024)]
+    df_rp_peaks = df_peaks[
+        (df_peaks[f"{rp}yr_rp"]) & (df_peaks["date"] != 2024)
+    ]
     fig.add_trace(
         go.Scatter(
             x=df_rp_peaks["rp"],
