@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 load_dotenv()
 
 
-ISO3S = ["ner", "nga", "cmr", "tcd", "bfa", "eth"]
+ISO3S = ["ner", "nga", "cmr", "tcd", "bfa", "eth", "ssd", "som"]
 ADMS = [0, 1, 2]
 
 iso3_to_pcode = {
@@ -16,6 +16,8 @@ iso3_to_pcode = {
     "tcd": "TD",
     "bfa": "BF",
     "eth": "ET",
+    "ssd": "SS",
+    "som": "SO",
 }
 
 pcode_to_iso3 = {
@@ -25,6 +27,8 @@ pcode_to_iso3 = {
     "TD": "tcd",
     "BF": "bfa",
     "ET": "eth",
+    "SS": "ssd",
+    "SO": "som",
 }
 
 CHD_GREEN = "#1bb580"
