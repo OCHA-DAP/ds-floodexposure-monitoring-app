@@ -2,6 +2,9 @@ import dash_leaflet as dl
 import dash_mantine_components as dmc
 from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
+
+# TODO: Be more careful with engine?
+from constants import ATTRIBUTION, CHD_GREEN, URL, URL_LABELS, engine
 from utils.chart_utils import create_return_period_plot, create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
@@ -10,9 +13,6 @@ from utils.data_utils import (
     process_flood_data,
 )
 from utils.log_utils import get_logger
-
-# TODO: Be more careful with engine?
-from constants import ATTRIBUTION, CHD_GREEN, URL, URL_LABELS, engine
 
 logger = get_logger("callbacks")
 
@@ -120,13 +120,15 @@ def register_callbacks(app):
 
         if len(df_exposure) == 0:
             logger.warning(f"No data available for {pcode}")
+            empty_children = [
+                dmc.Space(h=100),
+                dmc.Center(
+                    html.Div("No data available for selected location")
+                ),
+            ]
             return (
-                [
-                    dmc.Space(h=100),
-                    dmc.Center(
-                        html.Div("No data available for selected location")
-                    ),
-                ],
+                empty_children,
+                empty_children,
                 dmc.Center("No data available"),
                 "",
             )
