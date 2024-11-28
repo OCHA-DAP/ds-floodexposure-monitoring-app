@@ -4,10 +4,14 @@ from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
 
 # TODO: Be more careful with engine?
-from constants import ATTRIBUTION, CHD_GREEN, URL, engine
+from constants import ATTRIBUTION, CHD_GREEN, URL, URL_LABELS, engine
 from utils.chart_utils import create_return_period_plot, create_timeseries_plot
-from utils.data_utils import (calculate_return_periods, fetch_flood_data,
-                              get_summary, process_flood_data)
+from utils.data_utils import (
+    calculate_return_periods,
+    fetch_flood_data,
+    get_summary,
+    process_flood_data,
+)
 from utils.log_utils import get_logger
 
 logger = get_logger("callbacks")
@@ -68,7 +72,9 @@ def register_callbacks(app):
             id="geojson",
             style=style_handle,
             hideout=dict(selected=""),
-            hoverStyle=arrow_function({"fillColor": "#1f77b4", "fillOpacity": 0.8}),
+            hoverStyle=arrow_function(
+                {"fillColor": "#1f77b4", "fillOpacity": 0.8}
+            ),
             zoomToBounds=True,
         )
         adm0 = dl.GeoJSON(
@@ -81,6 +87,11 @@ def register_callbacks(app):
             dl.TileLayer(url=URL, attribution=ATTRIBUTION),
             dl.Pane(adm0, style={"zIndex": 1001}, name="adm0"),
             dl.Pane(geojson, style={"zIndex": 1000}, name="sel"),
+            dl.Pane(
+                dl.TileLayer(url=URL_LABELS, attribution=ATTRIBUTION),
+                name="tile",
+                style={"zIndex": 1002},
+            ),
         ]
 
     @app.callback(
@@ -105,12 +116,15 @@ def register_callbacks(app):
                 "",
             )
         df_exposure, df_adm = fetch_flood_data(engine, pcode, adm_level)
+        df_exposure = df_exposure.sort_values("date")
 
         if len(df_exposure) == 0:
             logger.warning(f"No data available for {pcode}")
             empty_children = [
                 dmc.Space(h=100),
-                dmc.Center(html.Div("No data available for selected location")),
+                dmc.Center(
+                    html.Div("No data available for selected location")
+                ),
             ]
             return (
                 empty_children,
@@ -139,7 +153,9 @@ def register_callbacks(app):
         return exposure_chart, rp_chart, name, exposed_summary
 
     # TODO: Would be better as a clientside callback, but couldn't seem to get it to work...
-    @app.callback(Output("hover-place-name", "children"), Input("geojson", "hoverData"))
+    @app.callback(
+        Output("hover-place-name", "children"), Input("geojson", "hoverData")
+    )
     def info_hover(feature):
         if feature:
             return feature["properties"]["name"]
