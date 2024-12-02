@@ -2,6 +2,7 @@ import time
 
 import pandas as pd
 from sqlalchemy import text
+
 from utils.log_utils import get_logger
 
 logger = get_logger("data")
@@ -34,6 +35,7 @@ def process_flood_data(df_exposure, pcode, adm_level, window=7):
     val_col = f"roll{window}"
 
     # Calculate seasonal averages
+    df_exposure["date"] = pd.to_datetime(df_exposure["date"])
     df_seasonal = (
         df_exposure[df_exposure["date"].dt.year < 2024]
         .groupby(["adm1_pcode", "adm2_pcode", "dayofyear"])[val_col]
