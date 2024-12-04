@@ -77,9 +77,11 @@ def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
     position = (
         "bottom left"
         if df_peak_2024["rank"] == 1
-        else "top right"
-        if df_peak_2024["rank"] == len(df_peaks)
-        else "bottom right"
+        else (
+            "top right"
+            if df_peak_2024["rank"] == len(df_peaks)
+            else "bottom right"
+        )
     )
 
     fig.add_trace(

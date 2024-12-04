@@ -2,7 +2,6 @@ import time
 
 import pandas as pd
 from sqlalchemy import text
-
 from utils.log_utils import get_logger
 
 logger = get_logger("data")
@@ -11,14 +10,20 @@ logger = get_logger("data")
 def fetch_flood_data(engine, pcode, adm_level):
     """Fetch flood exposure and administrative data from database."""
     query_exposure = text(
-        f"select * from app.flood_exposure where adm{adm_level}_pcode=:pcode"
+        """
+        SELECT *
+        FROM app.floodscan_exposure
+        WHERE pcode=:pcode AND adm_level=:adm_level
+        """
     )
     query_adm = text("select * from app.adm")
     logger.info(f"Getting flood exposure data for {pcode}...")
     start = time.time()
     with engine.connect() as con:
         df_exposure = pd.read_sql_query(
-            query_exposure, con, params={"pcode": pcode}
+            query_exposure,
+            con,
+            params={"pcode": pcode, "adm_level": adm_level},
         )
         df_adm = pd.read_sql_query(query_adm, con)
         df_adm = df_adm[df_adm[f"adm{adm_level}_pcode"] == pcode]
@@ -28,6 +33,13 @@ def fetch_flood_data(engine, pcode, adm_level):
         f"Retrieved {len(df_exposure)} rows from database in {elapsed:.2f}s"
     )
     return df_exposure, df_adm
+
+
+def calculate_rolling(group, window=7):
+    group[f"roll{window}"] = (
+        group["total_exposed"].rolling(window=window).mean()
+    )
+    return group
 
 
 def process_flood_data(df_exposure, pcode, adm_level, window=7):
