@@ -2,9 +2,6 @@ import dash_leaflet as dl
 import dash_mantine_components as dmc
 from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
-
-# TODO: Be more careful with engine?
-from constants import ATTRIBUTION, CHD_GREEN, URL, URL_LABELS, engine
 from utils.chart_utils import create_return_period_plot, create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
@@ -13,6 +10,9 @@ from utils.data_utils import (
     process_flood_data,
 )
 from utils.log_utils import get_logger
+
+# TODO: Be more careful with engine?
+from constants import ATTRIBUTION, URL, URL_LABELS, engine
 
 logger = get_logger("callbacks")
 
@@ -116,7 +116,6 @@ def register_callbacks(app):
                 "",
             )
         df_exposure, df_adm = fetch_flood_data(engine, pcode, adm_level)
-        df_exposure = df_exposure.sort_values("date")
 
         if len(df_exposure) == 0:
             logger.warning(f"No data available for {pcode}")
@@ -134,22 +133,20 @@ def register_callbacks(app):
             )
 
         # Process data
-        df_processed, df_seasonal, df_peaks = process_flood_data(
-            df_exposure, pcode, adm_level
-        )
+        df_processed, df_seasonal, df_peaks = process_flood_data(df_exposure)
         df_peaks, peak_years = calculate_return_periods(df_peaks)
 
         # Create plots
         fig_timeseries = create_timeseries_plot(
-            df_seasonal, df_processed, peak_years, CHD_GREEN
+            df_seasonal, df_processed, peak_years
         )
-        fig_rp = create_return_period_plot(df_peaks, CHD_GREEN)
+        fig_rp = create_return_period_plot(df_peaks)
 
         exposure_chart = dcc.Graph(
             config={"displayModeBar": False}, figure=fig_timeseries
         )
         rp_chart = dcc.Graph(config={"displayModeBar": False}, figure=fig_rp)
-        name, exposed_summary = get_summary(df_exposure, df_adm, adm_level)
+        name, exposed_summary = get_summary(df_processed, df_adm, adm_level)
         return exposure_chart, rp_chart, name, exposed_summary
 
     # TODO: Would be better as a clientside callback, but couldn't seem to get it to work...

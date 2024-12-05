@@ -35,22 +35,22 @@ def fetch_flood_data(engine, pcode, adm_level):
     return df_exposure, df_adm
 
 
-def calculate_rolling(group, window=7):
-    group[f"roll{window}"] = (
-        group["total_exposed"].rolling(window=window).mean()
-    )
-    return group
-
-
-def process_flood_data(df_exposure, pcode, adm_level, window=7):
+def process_flood_data(df_exposure, window=7):
     """Process flood data for visualization."""
+    df_exposure = df_exposure.rename(columns={"valid_date": "date"})
+    df_exposure = df_exposure.sort_values("date")
+
     val_col = f"roll{window}"
+
+    # Calculate rolling averages
+    df_exposure[val_col] = df_exposure["sum"].rolling(window).mean()
 
     # Calculate seasonal averages
     df_exposure["date"] = pd.to_datetime(df_exposure["date"])
+    df_exposure["dayofyear"] = df_exposure["date"].dt.dayofyear
     df_seasonal = (
         df_exposure[df_exposure["date"].dt.year < 2024]
-        .groupby(["adm1_pcode", "adm2_pcode", "dayofyear"])[val_col]
+        .groupby("dayofyear")[val_col]
         .mean()
         .reset_index()
     )
@@ -64,55 +64,21 @@ def process_flood_data(df_exposure, pcode, adm_level, window=7):
 
     # Calculate peaks
     df_peaks = (
-        df_to_today.groupby(
-            [df_to_today["date"].dt.year, "adm1_pcode", "adm2_pcode"]
-        )[val_col]
+        df_to_today.groupby(df_to_today["date"].dt.year)[val_col]
         .max()
         .reset_index()
     )
 
-    # Aggregate by admin level
-    aggregation_funcs = {
-        "0": lambda d, s, p: (
-            d.groupby(["dayofyear", "date"])[val_col].sum().reset_index(),
-            s.groupby("eff_date")[val_col].sum().reset_index(),
-            p.groupby("date")[val_col].sum().reset_index(),
-        ),
-        "1": lambda d, s, p: (
-            d[d["adm1_pcode"] == pcode]
-            .groupby(["dayofyear", "date"])[val_col]
-            .sum()
-            .reset_index(),
-            s[s["adm1_pcode"] == pcode]
-            .groupby("eff_date")[val_col]
-            .sum()
-            .reset_index(),
-            p[p["adm1_pcode"] == pcode]
-            .groupby("date")[val_col]
-            .sum()
-            .reset_index(),
-        ),
-        "2": lambda d, s, p: (
-            d[d["adm2_pcode"] == pcode],
-            s[s["adm2_pcode"] == pcode],
-            p[p["adm2_pcode"] == pcode].copy(),
-        ),
-    }
-
-    df_processed, df_seasonal_final, df_peaks_final = aggregation_funcs[
-        adm_level
-    ](df_exposure, df_seasonal, df_peaks)
-    df_processed["eff_date"] = pd.to_datetime(
-        df_processed["dayofyear"], format="%j"
+    df_exposure["eff_date"] = pd.to_datetime(
+        df_exposure["dayofyear"], format="%j"
     )
+    return df_exposure, df_seasonal, df_peaks
 
-    return df_processed, df_seasonal_final, df_peaks_final
 
-
-def calculate_return_periods(df_peaks, rp=3):
+def calculate_return_periods(df_peaks, rp: int = 3, window: int = 7):
     """Calculate return periods for flood events."""
-    df_peaks["rank"] = df_peaks["roll7"].rank(ascending=False)
-    df_peaks["rp"] = len(df_peaks) / df_peaks["rank"]
+    df_peaks["rank"] = df_peaks[f"roll{window}"].rank(ascending=False)
+    df_peaks["rp"] = (len(df_peaks) + 1) / df_peaks["rank"]
     df_peaks[f"{rp}yr_rp"] = df_peaks["rp"] >= rp
     peak_years = df_peaks[df_peaks[f"{rp}yr_rp"]]["date"].to_list()
     return df_peaks.sort_values(by="rp"), peak_years

@@ -1,7 +1,9 @@
 import plotly.graph_objects as go
 
+from constants import CHD_GREEN
 
-def create_timeseries_plot(df_seasonal, df_processed, peak_years, CHD_GREEN):
+
+def create_timeseries_plot(df_seasonal, df_processed, peak_years):
     """Create timeseries plot using Plotly."""
     df_seasonal = df_seasonal.sort_values("eff_date")
     df_processed = df_processed.sort_values("date", ascending=False)
@@ -57,7 +59,7 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years, CHD_GREEN):
     return fig
 
 
-def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
+def create_return_period_plot(df_peaks, rp=3):
     """Create return period plot using Plotly."""
     fig = go.Figure()
 
@@ -124,7 +126,7 @@ def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
         font=dict(family="Arial, sans-serif"),
     )
-    fig.update_yaxes(title="Annual population exposed to flooding")
+    fig.update_yaxes(title="Maximum daily flood exposure during year")
     fig.update_xaxes(title="Return period (years)")
 
     return fig
