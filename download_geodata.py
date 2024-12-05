@@ -9,7 +9,8 @@ def clean_gdf(gdf):
     gdf["name"] = gdf.apply(
         lambda row: (
             row[f"ADM{adm}_FR"]
-            if pd.notna(row.get(f"ADM{adm}_FR")) and row.get(f"ADM{adm}_FR") != ""
+            if pd.notna(row.get(f"ADM{adm}_FR"))
+            and row.get(f"ADM{adm}_FR") != ""
             else row.get(f"ADM{adm}_EN", "")
         ),
         axis=1,
@@ -32,7 +33,9 @@ if __name__ == "__main__":
         if adm == 0:
             gdf_all_outline = gdf_all.copy()
             gdf_all_outline.geometry = gdf_all_outline.geometry.boundary
-            gdf_all_outline = gpd.GeoDataFrame(gdf_all_outline, geometry="geometry")
+            gdf_all_outline = gpd.GeoDataFrame(
+                gdf_all_outline, geometry="geometry"
+            )
             gdf_all_outline = clean_gdf(gdf_all_outline)
             gdf_all_outline.to_file(
                 f"assets/geo/adm{adm}_outline.json", driver="GeoJSON"

@@ -1,7 +1,9 @@
 import plotly.graph_objects as go
 
+from constants import CHD_GREEN, ROLLING_WINDOW
 
-def create_timeseries_plot(df_seasonal, df_processed, peak_years, CHD_GREEN):
+
+def create_timeseries_plot(df_seasonal, df_processed, peak_years):
     """Create timeseries plot using Plotly."""
     df_seasonal = df_seasonal.sort_values("eff_date")
     df_processed = df_processed.sort_values("date", ascending=False)
@@ -11,7 +13,7 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years, CHD_GREEN):
     fig.add_trace(
         go.Scatter(
             x=df_seasonal["eff_date"],
-            y=df_seasonal["roll7"],
+            y=df_seasonal[f"roll{ROLLING_WINDOW}"],
             name="Average",
             line_color="black",
             line_width=2,
@@ -33,7 +35,7 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years, CHD_GREEN):
         fig.add_trace(
             go.Scatter(
                 x=df_year["eff_date"],
-                y=df_year["roll7"],
+                y=df_year[f"roll{ROLLING_WINDOW}"],
                 name=str(year),
                 line_color=color,
                 line_width=linewidth,
@@ -57,7 +59,7 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years, CHD_GREEN):
     return fig
 
 
-def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
+def create_return_period_plot(df_peaks, rp=3):
     """Create return period plot using Plotly."""
     fig = go.Figure()
 
@@ -65,7 +67,7 @@ def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
     fig.add_trace(
         go.Scatter(
             x=df_peaks["rp"],
-            y=df_peaks["roll7"],
+            y=df_peaks[f"roll{ROLLING_WINDOW}"],
             name="all years",
             mode="lines",
             line_color="black",
@@ -77,15 +79,17 @@ def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
     position = (
         "bottom left"
         if df_peak_2024["rank"] == 1
-        else "top right"
-        if df_peak_2024["rank"] == len(df_peaks)
-        else "bottom right"
+        else (
+            "top right"
+            if df_peak_2024["rank"] == len(df_peaks)
+            else "bottom right"
+        )
     )
 
     fig.add_trace(
         go.Scatter(
             x=[df_peak_2024["rp"]],
-            y=[df_peak_2024["roll7"]],
+            y=[df_peak_2024[f"roll{ROLLING_WINDOW}"]],
             name="current year",
             mode="markers+text",
             text="2024",
@@ -103,7 +107,7 @@ def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
     fig.add_trace(
         go.Scatter(
             x=df_rp_peaks["rp"],
-            y=df_rp_peaks["roll7"],
+            y=df_rp_peaks[f"roll{ROLLING_WINDOW}"],
             text=df_rp_peaks["date"],
             name="≥3-yr RP years",
             textposition="top left",
@@ -122,7 +126,7 @@ def create_return_period_plot(df_peaks, CHD_GREEN, rp=3):
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
         font=dict(family="Arial, sans-serif"),
     )
-    fig.update_yaxes(title="Annual population exposed to flooding")
+    fig.update_yaxes(title="Maximum daily flood exposure during year")
     fig.update_xaxes(title="Return period (years)")
 
     return fig
