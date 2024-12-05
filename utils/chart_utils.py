@@ -1,6 +1,6 @@
 import plotly.graph_objects as go
 
-from constants import CHD_GREEN
+from constants import CHD_GREEN, ROLLING_WINDOW
 
 
 def create_timeseries_plot(df_seasonal, df_processed, peak_years):
@@ -13,7 +13,7 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years):
     fig.add_trace(
         go.Scatter(
             x=df_seasonal["eff_date"],
-            y=df_seasonal["roll7"],
+            y=df_seasonal[f"roll{ROLLING_WINDOW}"],
             name="Average",
             line_color="black",
             line_width=2,
@@ -35,7 +35,7 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years):
         fig.add_trace(
             go.Scatter(
                 x=df_year["eff_date"],
-                y=df_year["roll7"],
+                y=df_year[f"roll{ROLLING_WINDOW}"],
                 name=str(year),
                 line_color=color,
                 line_width=linewidth,
@@ -67,7 +67,7 @@ def create_return_period_plot(df_peaks, rp=3):
     fig.add_trace(
         go.Scatter(
             x=df_peaks["rp"],
-            y=df_peaks["roll7"],
+            y=df_peaks[f"roll{ROLLING_WINDOW}"],
             name="all years",
             mode="lines",
             line_color="black",
@@ -89,7 +89,7 @@ def create_return_period_plot(df_peaks, rp=3):
     fig.add_trace(
         go.Scatter(
             x=[df_peak_2024["rp"]],
-            y=[df_peak_2024["roll7"]],
+            y=[df_peak_2024[f"roll{ROLLING_WINDOW}"]],
             name="current year",
             mode="markers+text",
             text="2024",
@@ -107,7 +107,7 @@ def create_return_period_plot(df_peaks, rp=3):
     fig.add_trace(
         go.Scatter(
             x=df_rp_peaks["rp"],
-            y=df_rp_peaks["roll7"],
+            y=df_rp_peaks[f"roll{ROLLING_WINDOW}"],
             text=df_rp_peaks["date"],
             name="≥3-yr RP years",
             textposition="top left",

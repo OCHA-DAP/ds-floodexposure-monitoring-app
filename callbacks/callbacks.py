@@ -11,8 +11,7 @@ from utils.data_utils import (
 )
 from utils.log_utils import get_logger
 
-# TODO: Be more careful with engine?
-from constants import ATTRIBUTION, URL, URL_LABELS, engine
+from constants import ATTRIBUTION, URL, URL_LABELS
 
 logger = get_logger("callbacks")
 
@@ -115,7 +114,7 @@ def register_callbacks(app):
                 dmc.Center("No location selected"),
                 "",
             )
-        df_exposure, df_adm = fetch_flood_data(engine, pcode, adm_level)
+        df_exposure, df_adm = fetch_flood_data(pcode, adm_level)
 
         if len(df_exposure) == 0:
             logger.warning(f"No data available for {pcode}")

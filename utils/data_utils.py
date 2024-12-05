@@ -1,13 +1,38 @@
 import time
+from typing import Literal
 
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from utils.log_utils import get_logger
+
+from constants import (
+    AZURE_DB_BASE_URL,
+    AZURE_DB_PW_DEV,
+    AZURE_DB_PW_PROD,
+    AZURE_DB_UID,
+    ROLLING_WINDOW,
+)
 
 logger = get_logger("data")
 
 
-def fetch_flood_data(engine, pcode, adm_level):
+def get_engine(stage: Literal["dev", "prod"] = "dev"):
+    if stage == "dev":
+        url = AZURE_DB_BASE_URL.format(
+            uid=AZURE_DB_UID, pw=AZURE_DB_PW_DEV, db_name="chd-rasterstats-dev"
+        )
+    elif stage == "prod":
+        url = AZURE_DB_BASE_URL.format(
+            uid=AZURE_DB_UID,
+            pw=AZURE_DB_PW_PROD,
+            db_name="chd-rasterstats-prod",
+        )
+    else:
+        raise ValueError(f"Invalid stage: {stage}")
+    return create_engine(url)
+
+
+def fetch_flood_data(pcode, adm_level):
     """Fetch flood exposure and administrative data from database."""
     query_exposure = text(
         """
@@ -19,6 +44,7 @@ def fetch_flood_data(engine, pcode, adm_level):
     query_adm = text("select * from app.adm")
     logger.info(f"Getting flood exposure data for {pcode}...")
     start = time.time()
+    engine = get_engine()
     with engine.connect() as con:
         df_exposure = pd.read_sql_query(
             query_exposure,
@@ -35,15 +61,15 @@ def fetch_flood_data(engine, pcode, adm_level):
     return df_exposure, df_adm
 
 
-def process_flood_data(df_exposure, window=7):
+def process_flood_data(df_exposure):
     """Process flood data for visualization."""
     df_exposure = df_exposure.rename(columns={"valid_date": "date"})
     df_exposure = df_exposure.sort_values("date")
 
-    val_col = f"roll{window}"
+    val_col = f"roll{ROLLING_WINDOW}"
 
     # Calculate rolling averages
-    df_exposure[val_col] = df_exposure["sum"].rolling(window).mean()
+    df_exposure[val_col] = df_exposure["sum"].rolling(ROLLING_WINDOW).mean()
 
     # Calculate seasonal averages
     df_exposure["date"] = pd.to_datetime(df_exposure["date"])
@@ -75,19 +101,19 @@ def process_flood_data(df_exposure, window=7):
     return df_exposure, df_seasonal, df_peaks
 
 
-def calculate_return_periods(df_peaks, rp: int = 3, window: int = 7):
+def calculate_return_periods(df_peaks, rp: int = 3):
     """Calculate return periods for flood events."""
-    df_peaks["rank"] = df_peaks[f"roll{window}"].rank(ascending=False)
+    df_peaks["rank"] = df_peaks[f"roll{ROLLING_WINDOW}"].rank(ascending=False)
     df_peaks["rp"] = (len(df_peaks) + 1) / df_peaks["rank"]
     df_peaks[f"{rp}yr_rp"] = df_peaks["rp"] >= rp
     peak_years = df_peaks[df_peaks[f"{rp}yr_rp"]]["date"].to_list()
     return df_peaks.sort_values(by="rp"), peak_years
 
 
-def get_summary(df_exposure, df_adm, adm_level, window=7):
+def get_summary(df_exposure, df_adm, adm_level):
     name = df_adm.iloc[0][f"adm{adm_level}_name"]
     max_date = f"{df_exposure['date'].max():%Y-%m-%d}"
-    val_col = f"roll{window}"
+    val_col = f"roll{ROLLING_WINDOW}"
 
     df_ = df_exposure[df_exposure["date"] == max_date]
 
