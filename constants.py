@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-ISO3S = ["ner", "nga", "cmr", "tcd", "bfa", "eth", "ssd", "som", "mli"]
+ISO3S = ["ner", "nga", "cmr", "tcd", "bfa", "eth", "ssd", "som", "mli", "cod"]
 ADMS = [0, 1, 2]
 
 ROLLING_WINDOW = 7
@@ -19,6 +19,8 @@ iso3_to_pcode = {
     "eth": "ET",
     "ssd": "SS",
     "som": "SO",
+    "mli": "ML",
+    "cod": "CD",
 }
 
 pcode_to_iso3 = {
@@ -30,6 +32,8 @@ pcode_to_iso3 = {
     "ET": "eth",
     "SS": "ssd",
     "SO": "som",
+    "ML": "mli",
+    "CD": "cod",
 }
 
 CHD_GREEN = "#1bb580"
