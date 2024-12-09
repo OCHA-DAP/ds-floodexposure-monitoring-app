@@ -1,24 +1,55 @@
 import time
+from typing import Literal
 
 import pandas as pd
-from sqlalchemy import text
-
+from sqlalchemy import create_engine, text
 from utils.log_utils import get_logger
+
+from constants import (
+    AZURE_DB_BASE_URL,
+    AZURE_DB_PW_DEV,
+    AZURE_DB_PW_PROD,
+    AZURE_DB_UID,
+    ROLLING_WINDOW,
+)
 
 logger = get_logger("data")
 
 
-def fetch_flood_data(engine, pcode, adm_level):
+def get_engine(stage: Literal["dev", "prod"] = "dev"):
+    if stage == "dev":
+        url = AZURE_DB_BASE_URL.format(
+            uid=AZURE_DB_UID, pw=AZURE_DB_PW_DEV, db_name="chd-rasterstats-dev"
+        )
+    elif stage == "prod":
+        url = AZURE_DB_BASE_URL.format(
+            uid=AZURE_DB_UID,
+            pw=AZURE_DB_PW_PROD,
+            db_name="chd-rasterstats-prod",
+        )
+    else:
+        raise ValueError(f"Invalid stage: {stage}")
+    return create_engine(url)
+
+
+def fetch_flood_data(pcode, adm_level):
     """Fetch flood exposure and administrative data from database."""
     query_exposure = text(
-        f"select * from app.flood_exposure where adm{adm_level}_pcode=:pcode"
+        """
+        SELECT *
+        FROM app.floodscan_exposure
+        WHERE pcode=:pcode AND adm_level=:adm_level
+        """
     )
     query_adm = text("select * from app.adm")
     logger.info(f"Getting flood exposure data for {pcode}...")
     start = time.time()
+    engine = get_engine()
     with engine.connect() as con:
         df_exposure = pd.read_sql_query(
-            query_exposure, con, params={"pcode": pcode}
+            query_exposure,
+            con,
+            params={"pcode": pcode, "adm_level": adm_level},
         )
         df_adm = pd.read_sql_query(query_adm, con)
         df_adm = df_adm[df_adm[f"adm{adm_level}_pcode"] == pcode]
@@ -30,15 +61,22 @@ def fetch_flood_data(engine, pcode, adm_level):
     return df_exposure, df_adm
 
 
-def process_flood_data(df_exposure, pcode, adm_level, window=7):
+def process_flood_data(df_exposure):
     """Process flood data for visualization."""
-    val_col = f"roll{window}"
+    df_exposure = df_exposure.rename(columns={"valid_date": "date"})
+    df_exposure = df_exposure.sort_values("date")
+
+    val_col = f"roll{ROLLING_WINDOW}"
+
+    # Calculate rolling averages
+    df_exposure[val_col] = df_exposure["sum"].rolling(ROLLING_WINDOW).mean()
 
     # Calculate seasonal averages
     df_exposure["date"] = pd.to_datetime(df_exposure["date"])
+    df_exposure["dayofyear"] = df_exposure["date"].dt.dayofyear
     df_seasonal = (
         df_exposure[df_exposure["date"].dt.year < 2024]
-        .groupby(["adm1_pcode", "adm2_pcode", "dayofyear"])[val_col]
+        .groupby("dayofyear")[val_col]
         .mean()
         .reset_index()
     )
@@ -52,64 +90,30 @@ def process_flood_data(df_exposure, pcode, adm_level, window=7):
 
     # Calculate peaks
     df_peaks = (
-        df_to_today.groupby(
-            [df_to_today["date"].dt.year, "adm1_pcode", "adm2_pcode"]
-        )[val_col]
+        df_to_today.groupby(df_to_today["date"].dt.year)[val_col]
         .max()
         .reset_index()
     )
 
-    # Aggregate by admin level
-    aggregation_funcs = {
-        "0": lambda d, s, p: (
-            d.groupby(["dayofyear", "date"])[val_col].sum().reset_index(),
-            s.groupby("eff_date")[val_col].sum().reset_index(),
-            p.groupby("date")[val_col].sum().reset_index(),
-        ),
-        "1": lambda d, s, p: (
-            d[d["adm1_pcode"] == pcode]
-            .groupby(["dayofyear", "date"])[val_col]
-            .sum()
-            .reset_index(),
-            s[s["adm1_pcode"] == pcode]
-            .groupby("eff_date")[val_col]
-            .sum()
-            .reset_index(),
-            p[p["adm1_pcode"] == pcode]
-            .groupby("date")[val_col]
-            .sum()
-            .reset_index(),
-        ),
-        "2": lambda d, s, p: (
-            d[d["adm2_pcode"] == pcode],
-            s[s["adm2_pcode"] == pcode],
-            p[p["adm2_pcode"] == pcode].copy(),
-        ),
-    }
-
-    df_processed, df_seasonal_final, df_peaks_final = aggregation_funcs[
-        adm_level
-    ](df_exposure, df_seasonal, df_peaks)
-    df_processed["eff_date"] = pd.to_datetime(
-        df_processed["dayofyear"], format="%j"
+    df_exposure["eff_date"] = pd.to_datetime(
+        df_exposure["dayofyear"], format="%j"
     )
+    return df_exposure, df_seasonal, df_peaks
 
-    return df_processed, df_seasonal_final, df_peaks_final
 
-
-def calculate_return_periods(df_peaks, rp=3):
+def calculate_return_periods(df_peaks, rp: int = 3):
     """Calculate return periods for flood events."""
-    df_peaks["rank"] = df_peaks["roll7"].rank(ascending=False)
-    df_peaks["rp"] = len(df_peaks) / df_peaks["rank"]
+    df_peaks["rank"] = df_peaks[f"roll{ROLLING_WINDOW}"].rank(ascending=False)
+    df_peaks["rp"] = (len(df_peaks) + 1) / df_peaks["rank"]
     df_peaks[f"{rp}yr_rp"] = df_peaks["rp"] >= rp
     peak_years = df_peaks[df_peaks[f"{rp}yr_rp"]]["date"].to_list()
     return df_peaks.sort_values(by="rp"), peak_years
 
 
-def get_summary(df_exposure, df_adm, adm_level, window=7):
+def get_summary(df_exposure, df_adm, adm_level):
     name = df_adm.iloc[0][f"adm{adm_level}_name"]
     max_date = f"{df_exposure['date'].max():%Y-%m-%d}"
-    val_col = f"roll{window}"
+    val_col = f"roll{ROLLING_WINDOW}"
 
     df_ = df_exposure[df_exposure["date"] == max_date]
 
