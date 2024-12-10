@@ -2,7 +2,7 @@ import geopandas as gpd
 import pandas as pd
 
 from constants import ADMS, ISO3S
-from utils import codab_utils
+from utils import codab_utils, data_utils
 
 
 def clean_gdf(gdf):
@@ -20,7 +20,33 @@ def clean_gdf(gdf):
     return gdf
 
 
+def load_geo_data(save_to_database=True):
+    """Load geo data from blob storage and save to database."""
+    adms = []
+    for iso3 in ISO3S:
+        print(f"loading {iso3} adm to migrate")
+        gdf_in = codab_utils.load_codab_from_blob(iso3, admin_level=2)
+        adms.append(gdf_in)
+    adm = pd.concat(adms, ignore_index=True)
+
+    for adm_level in range(3):
+        adm[f"ADM{adm_level}_NAME"] = adm[f"ADM{adm_level}_FR"].fillna(
+            adm[f"ADM{adm_level}_FR"]
+        )
+    adm.drop(columns=["geometry"], inplace=True)
+    adm.columns = adm.columns.str.lower()
+    if save_to_database:
+        adm.to_sql(
+            "adm",
+            schema="app",
+            con=data_utils.get_engine(stage="dev"),
+            if_exists="replace",
+            index=False,
+        )
+
+
 if __name__ == "__main__":
+    load_geo_data()
     for adm in ADMS:
         print(f"Processing geo data for admin {adm}...")
         gdfs = []
