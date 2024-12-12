@@ -34,10 +34,8 @@ def get_engine(stage: Literal["dev", "prod"] = "dev"):
 
 def fetch_flood_data(pcode, adm_level):
     """Fetch flood exposure and administrative data from database."""
-    print(pcode, adm_level)
     if adm_level == "region":
         parts = pcode.split("_region_")
-        print(parts)
         iso3 = parts[0].upper()
         region_number = int(parts[1])
         query_exposure = text(
@@ -47,9 +45,7 @@ def fetch_flood_data(pcode, adm_level):
             WHERE iso3=:iso3 AND region_number=:region_number
             """
         )
-        print(query_exposure)
         params = {"iso3": iso3, "region_number": region_number}
-        print(params)
     else:
         query_exposure = text(
             """
