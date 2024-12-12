@@ -160,6 +160,7 @@ def map_container():
                     {"value": "0", "label": "Admin 0"},
                     {"value": "1", "label": "Admin 1"},
                     {"value": "2", "label": "Admin 2"},
+                    {"value": "region", "label": "Regions"},
                 ],
                 style={
                     "width": 130,

@@ -34,13 +34,31 @@ def get_engine(stage: Literal["dev", "prod"] = "dev"):
 
 def fetch_flood_data(pcode, adm_level):
     """Fetch flood exposure and administrative data from database."""
-    query_exposure = text(
-        """
-        SELECT *
-        FROM app.floodscan_exposure
-        WHERE pcode=:pcode AND adm_level=:adm_level
-        """
-    )
+    print(pcode, adm_level)
+    if adm_level == "region":
+        parts = pcode.split("_region_")
+        print(parts)
+        iso3 = parts[0].upper()
+        region_number = int(parts[1])
+        query_exposure = text(
+            """
+            SELECT *
+            FROM app.floodscan_exposure_regions
+            WHERE iso3=:iso3 AND region_number=:region_number
+            """
+        )
+        print(query_exposure)
+        params = {"iso3": iso3, "region_number": region_number}
+        print(params)
+    else:
+        query_exposure = text(
+            """
+            SELECT *
+            FROM app.floodscan_exposure
+            WHERE pcode=:pcode AND adm_level=:adm_level
+            """
+        )
+        params = {"pcode": pcode, "adm_level": adm_level}
     query_adm = text("select * from app.adm")
     logger.info(f"Getting flood exposure data for {pcode}...")
     start = time.time()
@@ -49,7 +67,7 @@ def fetch_flood_data(pcode, adm_level):
         df_exposure = pd.read_sql_query(
             query_exposure,
             con,
-            params={"pcode": pcode, "adm_level": adm_level},
+            params=params,
         )
         df_adm = pd.read_sql_query(query_adm, con)
         df_adm = df_adm[df_adm[f"adm{adm_level}_pcode"] == pcode]

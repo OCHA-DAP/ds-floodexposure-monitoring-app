@@ -6,7 +6,7 @@ load_dotenv()
 
 
 ISO3S = ["ner", "nga", "cmr", "tcd", "bfa", "eth", "ssd", "som", "mli", "cod"]
-ADMS = [0, 1, 2]
+ADM_LEVELS = [0, 1, 2]
 
 ROLLING_WINDOW = 7
 
