@@ -73,7 +73,6 @@ if __name__ == "__main__":
 
         # aggregate relevant regions
         for region in REGIONS:
-            print(region)
             if region["adm_level"] == adm_level:
                 gdf_region_in = gdf_all[
                     gdf_all[f"ADM{adm_level}_PCODE"].isin(region["pcodes"])
@@ -84,7 +83,6 @@ if __name__ == "__main__":
                 ] = f'{region["iso3"]}_region_{region["region_number"]}'
                 gdf_region_in["name"] = region["region_name"]
                 gdf_region_in = gdf_region_in[["pcode", "name", "geometry"]]
-                print(gdf_region_in)
                 region_gdfs.append(gdf_region_in)
 
         if adm_level == 0:
