@@ -58,7 +58,7 @@ def load_geo_data(save_to_database=True):
 
 
 if __name__ == "__main__":
-    # load_geo_data()
+    load_geo_data()
 
     region_gdfs = []
     for adm_level in ADM_LEVELS:
