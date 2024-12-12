@@ -38,17 +38,20 @@ def load_geo_data(save_to_database=True):
 
     region_dicts = []
     for region in REGIONS:
+        adm_names = adm[
+            adm[f"adm{region['adm_level']}_pcode"].isin(region["pcodes"])
+        ][f"adm{region['adm_level']}_name"].unique()
         region_dicts.append(
             {
                 "admregion_pcode": f'{region["iso3"]}_region_{region["region_number"]}',
-                "admregion_name": region["region_name"],
+                "admregion_name": f'{region["region_name"]} ({", ".join(adm_names)})',
             }
         )
 
-    adm = pd.concat([adm, pd.DataFrame(region_dicts)], ignore_index=True)
+    df_out = pd.concat([adm, pd.DataFrame(region_dicts)], ignore_index=True)
 
     if save_to_database:
-        adm.to_sql(
+        df_out.to_sql(
             "adm",
             schema="app",
             con=data_utils.get_engine(stage="dev"),
