@@ -3,7 +3,6 @@ from typing import Literal
 
 import pandas as pd
 from sqlalchemy import create_engine, text
-from utils.log_utils import get_logger
 
 from constants import (
     AZURE_DB_BASE_URL,
@@ -12,6 +11,7 @@ from constants import (
     AZURE_DB_UID,
     ROLLING_WINDOW,
 )
+from utils.log_utils import get_logger
 
 logger = get_logger("data")
 
@@ -56,7 +56,7 @@ def fetch_flood_data(pcode, adm_level):
 
     elapsed = time.time() - start
     logger.debug(
-        f"Retrieved {len(df_exposure)} rows from database in {elapsed:.2f}s"
+        f"Retrieved {len(df_exposure)} rows from database in {elapsed:.2f}s"  # noqa
     )
     return df_exposure, df_adm
 
@@ -110,9 +110,9 @@ def calculate_return_periods(df_peaks, rp: int = 3):
     return df_peaks.sort_values(by="rp"), peak_years
 
 
-def get_summary(df_exposure, df_adm, adm_level):
+def get_summary(df_exposure, df_adm, adm_level, tercile):
     name = df_adm.iloc[0][f"adm{adm_level}_name"]
-    max_date = f"{df_exposure['date'].max():%Y-%m-%d}"
+    max_date = f"{df_exposure['date'].max():%Y-%m-%d}"  # noqa
     val_col = f"roll{ROLLING_WINDOW}"
 
     df_ = df_exposure[df_exposure["date"] == max_date]
@@ -125,7 +125,10 @@ def get_summary(df_exposure, df_adm, adm_level):
     )
     people_exposed_formatted = "{:,}".format(people_exposed)
 
+    # TODO: Remove need for mapping
+    tercile_label = {-1: "below average", 0: "average", 1: "above average"}
+
     return (
         name,
-        f"{people_exposed_formatted} people exposed to flooding as of {max_date}.",
+        f"{people_exposed_formatted} people exposed to flooding as of {max_date}. This is {tercile_label[tercile]} for this time of year.",  # noqa
     )

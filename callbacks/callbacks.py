@@ -50,7 +50,7 @@ style_handle = assign(
 
 def register_callbacks(app):
     @app.callback(
-        Output("selected-pcode", "data"),
+        Output("selected-data", "data"),
         Output("geojson", "hideout"),
         Input("geojson", "n_clicks"),
         State("adm-level", "value"),
@@ -65,11 +65,13 @@ def register_callbacks(app):
             return no_update
 
         name = feature["properties"]["pcode"]
+        tercile = feature["properties"]["tercile"]
+        print(tercile)
         if hideout["selected"] == name:
             hideout["selected"] = ""
         else:
             hideout["selected"] = name
-        return name, hideout
+        return feature["properties"], hideout
 
     @app.callback(Output("map", "children"), Input("adm-level", "value"))
     def set_adm_value(adm_level):
@@ -87,7 +89,6 @@ def register_callbacks(app):
         for feature, tercile in zip(data["features"], df_joined["tercile"]):
             feature["properties"]["tercile"] = tercile
 
-        # Create diverging color scale (blue to white to red)
         colorscale = [
             "#6baed6",  # Medium blue
             "#dbdbdb",
@@ -155,12 +156,12 @@ def register_callbacks(app):
         Output("rp-chart", "children"),
         Output("place-name", "children"),
         Output("num-exposed", "children"),
-        Input("selected-pcode", "data"),
+        Input("selected-data", "data"),
         State("adm-level", "value"),
         prevent_initial_call=False,
     )
-    def update_plot(pcode, adm_level):
-        if not pcode:
+    def update_plot(selected_data, adm_level):
+        if not selected_data:
             blank_children = [
                 dmc.Space(h=100),
                 dmc.Center(html.Div("Select a location from the map above")),
@@ -171,6 +172,10 @@ def register_callbacks(app):
                 dmc.Center("No location selected"),
                 "",
             )
+
+        pcode = selected_data["pcode"]
+        tercile = selected_data["tercile"]
+
         df_exposure, df_adm = fetch_flood_data(pcode, adm_level)
 
         if len(df_exposure) == 0:
@@ -202,5 +207,7 @@ def register_callbacks(app):
             config={"displayModeBar": False}, figure=fig_timeseries
         )
         rp_chart = dcc.Graph(config={"displayModeBar": False}, figure=fig_rp)
-        name, exposed_summary = get_summary(df_processed, df_adm, adm_level)
+        name, exposed_summary = get_summary(
+            df_processed, df_adm, adm_level, tercile
+        )
         return exposure_chart, rp_chart, name, exposed_summary
