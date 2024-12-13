@@ -1,24 +1,22 @@
 window.dashExtensions = Object.assign({}, window.dashExtensions, {
     default: {
         function0: function(feature, context) {
-            const selected = context.hideout.selected
+            const {
+                classes,
+                colorscale,
+                style,
+                colorProp,
+                selected
+            } = context.hideout; // get props from hideout
 
-            if (selected.includes(feature.properties.pcode)) {
-                return {
-                    fillColor: '#1f77b4',
-                    weight: 0.8,
-                    opacity: 1,
-                    color: 'white',
-                    fillOpacity: 0.8
+            const value = feature.properties[colorProp]; // get value the determines the color
+            for (let i = 0; i < classes.length; ++i) {
+                if (value > classes[i]) {
+                    style.fillColor = colorscale[i]; // set the fill color according to the class
                 }
             }
-            return {
-                fillColor: '#1f77b4',
-                weight: 0.8,
-                opacity: 1,
-                color: 'white',
-                fillOpacity: 0.3
-            }
+            return style;
+
         }
 
     }

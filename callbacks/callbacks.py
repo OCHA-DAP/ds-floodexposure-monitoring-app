@@ -1,7 +1,14 @@
+import json
+
 import dash_leaflet as dl
+import dash_leaflet.express as dlx
 import dash_mantine_components as dmc
+import jenkspy
+import pandas as pd
 from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
+
+from constants import ATTRIBUTION, URL, URL_LABELS
 from utils.chart_utils import create_return_period_plot, create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
@@ -11,31 +18,21 @@ from utils.data_utils import (
 )
 from utils.log_utils import get_logger
 
-from constants import ATTRIBUTION, URL, URL_LABELS
-
 logger = get_logger("callbacks")
 
 style_handle = assign(
     """
     function(feature, context) {
-        const selected = context.hideout.selected
+        const {classes, colorscale, style, colorProp, selected} = context.hideout;  // get props from hideout
 
-        if(selected.includes(feature.properties.pcode)){
-            return {
-                fillColor: '#1f77b4',
-                weight: 0.8,
-                opacity: 1,
-                color: 'white',
-                fillOpacity: 0.8
+        const value = feature.properties[colorProp];  // get value the determines the color
+        for (let i = 0; i < classes.length; ++i) {
+            if (value > classes[i]) {
+                style.fillColor = colorscale[i];  // set the fill color according to the class
             }
         }
-        return {
-            fillColor: '#1f77b4',
-            weight: 0.8,
-            opacity: 1,
-            color: 'white',
-            fillOpacity: 0.3
-        }
+        return style;
+
     }
 """
 )
@@ -66,14 +63,87 @@ def register_callbacks(app):
 
     @app.callback(Output("map", "children"), Input("adm-level", "value"))
     def set_adm_value(adm_level):
+        with open(f"assets/geo/adm{adm_level}.json", "r") as file:
+            data = json.load(file)
+
+        # TODO: Read from db
+        df_anomaly = pd.read_csv(f"temp/adm{adm_level}_anomaly.csv")
+        features_df = pd.DataFrame(
+            [feature["properties"] for feature in data["features"]]
+        )
+        df_joined = features_df.merge(
+            df_anomaly[["pcode", "anomaly"]], on="pcode", how="left"
+        )
+        for feature, anomaly in zip(data["features"], df_joined["anomaly"]):
+            feature["properties"]["anomaly"] = anomaly
+
+        # Split data into negative and positive values
+        neg_values = df_joined["anomaly"][df_joined["anomaly"] < 0].values
+        pos_values = df_joined["anomaly"][df_joined["anomaly"] >= 0].values
+
+        # Compute breaks for negative and positive values separately
+        if len(neg_values) > 0:
+            neg_breaks = jenkspy.jenks_breaks(
+                abs(neg_values), n_classes=2
+            )  # 3 classes for negative
+            neg_breaks = [
+                -x for x in reversed(neg_breaks)
+            ]  # Reverse and make negative
+        else:
+            neg_breaks = [0]  # If no negative values
+
+        if len(pos_values) > 0:
+            pos_breaks = jenkspy.jenks_breaks(
+                pos_values, n_classes=2
+            )  # 3 classes for positive
+        else:
+            pos_breaks = [0]  # If no positive values
+
+        # Combine breaks, ensuring zero is included
+        classes = sorted(list(set(neg_breaks + [0] + pos_breaks)))
+
+        # Create diverging color scale (blue to white to red)
+        colorscale = [
+            "#3182bd",  # Dark blue
+            "#6baed6",  # Medium blue
+            "#dbdbdb",  # Light blue
+            "#fcae91",  # Light red
+            "#fb6a4a",  # Medium red
+        ]
+
+        # Format the break points for display
+        ctg = []
+        for idx, _ in enumerate(classes[:-1]):
+            print(classes[idx])
+            if classes[idx + 1] == 0:
+                ctg.append(0)
+            else:
+                ctg.append(
+                    f"{int(classes[idx]):,} to {int(classes[idx+1]):,}"
+                )  # noqa
+
+        colorbar = dlx.categorical_colorbar(
+            categories=ctg,
+            colorscale=colorscale,
+            width=500,
+            height=15,
+            position="bottomleft",
+        )
+
+        style = dict(weight=1, opacity=1, color="white", fillOpacity=1)
+
         geojson = dl.GeoJSON(
-            url=f"assets/geo/adm{adm_level}.json",
+            data=data,
             id="geojson",
             style=style_handle,
-            hideout=dict(selected=""),
-            hoverStyle=arrow_function(
-                {"fillColor": "#1f77b4", "fillOpacity": 0.8}
+            hideout=dict(
+                colorscale=colorscale,
+                classes=classes,
+                style=style,
+                colorProp="anomaly",
+                selected="",
             ),
+            hoverStyle=arrow_function({"fillOpacity": 1}),
             zoomToBounds=True,
         )
         adm0 = dl.GeoJSON(
@@ -91,6 +161,7 @@ def register_callbacks(app):
                 name="tile",
                 style={"zIndex": 1002},
             ),
+            colorbar,
         ]
 
     @app.callback(
@@ -154,4 +225,4 @@ def register_callbacks(app):
     )
     def info_hover(feature):
         if feature:
-            return feature["properties"]["name"]
+            return round(feature["properties"]["anomaly"])
