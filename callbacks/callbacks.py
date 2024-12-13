@@ -3,7 +3,6 @@ import json
 import dash_leaflet as dl
 import dash_leaflet.express as dlx
 import dash_mantine_components as dmc
-import jenkspy
 import pandas as pd
 from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
@@ -24,12 +23,13 @@ style_handle = assign(
     """
     function(feature, context) {
         const {classes, colorscale, style, colorProp, selected} = context.hideout;  // get props from hideout
-
         const value = feature.properties[colorProp];  // get value the determines the color
-        for (let i = 0; i < classes.length; ++i) {
-            if (value > classes[i]) {
-                style.fillColor = colorscale[i];  // set the fill color according to the class
-            }
+        if (value == -1) {
+            style.fillColor = colorscale[0];
+        } else if (value == 0) {
+            style.fillColor = colorscale[1];
+        } else if (value == 1) {
+            style.fillColor = colorscale[2];
         }
         return style;
 
@@ -67,63 +67,27 @@ def register_callbacks(app):
             data = json.load(file)
 
         # TODO: Read from db
-        df_anomaly = pd.read_csv(f"temp/adm{adm_level}_anomaly.csv")
+        df_tercile = pd.read_csv(f"temp/adm{adm_level}_terciles.csv")
         features_df = pd.DataFrame(
             [feature["properties"] for feature in data["features"]]
         )
         df_joined = features_df.merge(
-            df_anomaly[["pcode", "anomaly"]], on="pcode", how="left"
+            df_tercile[["pcode", "tercile"]], on="pcode", how="left"
         )
-        for feature, anomaly in zip(data["features"], df_joined["anomaly"]):
-            feature["properties"]["anomaly"] = anomaly
+        for feature, tercile in zip(data["features"], df_joined["tercile"]):
+            feature["properties"]["tercile"] = tercile
 
-        # Split data into negative and positive values
-        neg_values = df_joined["anomaly"][df_joined["anomaly"] < 0].values
-        pos_values = df_joined["anomaly"][df_joined["anomaly"] >= 0].values
-
-        # Compute breaks for negative and positive values separately
-        if len(neg_values) > 0:
-            neg_breaks = jenkspy.jenks_breaks(
-                abs(neg_values), n_classes=2
-            )  # 3 classes for negative
-            neg_breaks = [
-                -x for x in reversed(neg_breaks)
-            ]  # Reverse and make negative
-        else:
-            neg_breaks = [0]  # If no negative values
-
-        if len(pos_values) > 0:
-            pos_breaks = jenkspy.jenks_breaks(
-                pos_values, n_classes=2
-            )  # 3 classes for positive
-        else:
-            pos_breaks = [0]  # If no positive values
-
-        # Combine breaks, ensuring zero is included
-        classes = sorted(list(set(neg_breaks + [0] + pos_breaks)))
+        classes = [-2, -1, 0, 1]
 
         # Create diverging color scale (blue to white to red)
         colorscale = [
-            "#3182bd",  # Dark blue
             "#6baed6",  # Medium blue
-            "#dbdbdb",  # Light blue
+            "#dbdbdb",
             "#fcae91",  # Light red
-            "#fb6a4a",  # Medium red
         ]
 
-        # Format the break points for display
-        ctg = []
-        for idx, _ in enumerate(classes[:-1]):
-            print(classes[idx])
-            if classes[idx + 1] == 0:
-                ctg.append(0)
-            else:
-                ctg.append(
-                    f"{int(classes[idx]):,} to {int(classes[idx+1]):,}"
-                )  # noqa
-
         colorbar = dlx.categorical_colorbar(
-            categories=ctg,
+            categories=["Below average", "Average", "Above average"],
             colorscale=colorscale,
             width=500,
             height=15,
@@ -140,7 +104,7 @@ def register_callbacks(app):
                 colorscale=colorscale,
                 classes=classes,
                 style=style,
-                colorProp="anomaly",
+                colorProp="tercile",
                 selected="",
             ),
             hoverStyle=arrow_function({"fillOpacity": 1}),
@@ -225,4 +189,4 @@ def register_callbacks(app):
     )
     def info_hover(feature):
         if feature:
-            return round(feature["properties"]["anomaly"])
+            return round(feature["properties"]["tercile"])
