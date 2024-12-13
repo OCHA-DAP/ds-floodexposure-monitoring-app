@@ -101,19 +101,17 @@ def register_callbacks(app):
             height=15,
             position="bottomleft",
         )
-        title = (
-            html.Div(
-                "Population exposed to flooding is...",
-                style={
-                    "position": "absolute",
-                    "bottom": "40px",
-                    "left": "10px",
-                    "zIndex": 1000,
-                    "fontSize": "12px",
-                    "paddingBottom": "5px",
-                    "fontWeight": "bold",
-                },
-            ),
+        title = html.Div(
+            "Population exposed to flooding is...",
+            style={
+                "position": "absolute",
+                "bottom": "40px",
+                "left": "10px",
+                "zIndex": 1000,
+                "fontSize": "12px",
+                "paddingBottom": "5px",
+                "fontWeight": "bold",
+            },
         )
 
         style = dict(weight=1, opacity=1, color="white", fillOpacity=0.5)
@@ -206,11 +204,3 @@ def register_callbacks(app):
         rp_chart = dcc.Graph(config={"displayModeBar": False}, figure=fig_rp)
         name, exposed_summary = get_summary(df_processed, df_adm, adm_level)
         return exposure_chart, rp_chart, name, exposed_summary
-
-    # TODO: Would be better as a clientside callback, but couldn't seem to get it to work...
-    @app.callback(
-        Output("hover-place-name", "children"), Input("geojson", "hoverData")
-    )
-    def info_hover(feature):
-        if feature:
-            return round(feature["properties"]["tercile"])
