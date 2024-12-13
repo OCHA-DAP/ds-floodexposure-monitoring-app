@@ -22,17 +22,27 @@ logger = get_logger("callbacks")
 style_handle = assign(
     """
     function(feature, context) {
-        const {classes, colorscale, style, colorProp, selected} = context.hideout;  // get props from hideout
-        const value = feature.properties[colorProp];  // get value the determines the color
-        if (value == -1) {
-            style.fillColor = colorscale[0];
-        } else if (value == 0) {
-            style.fillColor = colorscale[1];
-        } else if (value == 1) {
-            style.fillColor = colorscale[2];
-        }
-        return style;
+        const {colorscale, style, colorProp, selected} = context.hideout;  // get props from hideout
+        const value = feature.properties[colorProp];  // get value that determines the color
+        let featureStyle = {...style};
 
+        // Only modify opacity if this feature's pcode matches selected
+        if (selected === feature.properties.pcode) {
+            featureStyle.fillOpacity = 1;
+            featureStyle.color = "black";
+            featureStyle.weight = 1;
+        }
+
+        // Set color based on value
+        if (value === -1) {
+            featureStyle.fillColor = colorscale[0];
+        } else if (value === 0) {
+            featureStyle.fillColor = colorscale[1];
+        } else if (value === 1) {
+            featureStyle.fillColor = colorscale[2];
+        }
+
+        return featureStyle;
     }
 """
 )
@@ -77,8 +87,6 @@ def register_callbacks(app):
         for feature, tercile in zip(data["features"], df_joined["tercile"]):
             feature["properties"]["tercile"] = tercile
 
-        classes = [-2, -1, 0, 1]
-
         # Create diverging color scale (blue to white to red)
         colorscale = [
             "#6baed6",  # Medium blue
@@ -89,12 +97,26 @@ def register_callbacks(app):
         colorbar = dlx.categorical_colorbar(
             categories=["Below average", "Average", "Above average"],
             colorscale=colorscale,
-            width=500,
+            width=300,
             height=15,
             position="bottomleft",
         )
+        title = (
+            html.Div(
+                "Population exposed to flooding is...",
+                style={
+                    "position": "absolute",
+                    "bottom": "40px",
+                    "left": "10px",
+                    "zIndex": 1000,
+                    "fontSize": "12px",
+                    "paddingBottom": "5px",
+                    "fontWeight": "bold",
+                },
+            ),
+        )
 
-        style = dict(weight=1, opacity=1, color="white", fillOpacity=1)
+        style = dict(weight=1, opacity=1, color="white", fillOpacity=0.5)
 
         geojson = dl.GeoJSON(
             data=data,
@@ -102,12 +124,13 @@ def register_callbacks(app):
             style=style_handle,
             hideout=dict(
                 colorscale=colorscale,
-                classes=classes,
                 style=style,
                 colorProp="tercile",
                 selected="",
             ),
-            hoverStyle=arrow_function({"color": "black", "weight": 2}),
+            hoverStyle=arrow_function(
+                {"fillOpacity": 1, "weight": 1, "color": "black"}
+            ),
             zoomToBounds=False,
         )
         adm0 = dl.GeoJSON(
@@ -125,6 +148,7 @@ def register_callbacks(app):
                 name="tile",
                 style={"zIndex": 1002},
             ),
+            title,
             colorbar,
         ]
 
