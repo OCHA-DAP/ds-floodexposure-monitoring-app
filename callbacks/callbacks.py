@@ -107,8 +107,8 @@ def register_callbacks(app):
                 colorProp="tercile",
                 selected="",
             ),
-            hoverStyle=arrow_function({"fillOpacity": 1}),
-            zoomToBounds=True,
+            hoverStyle=arrow_function({"color": "black", "weight": 2}),
+            zoomToBounds=False,
         )
         adm0 = dl.GeoJSON(
             url="assets/geo/adm0_outline.json",
