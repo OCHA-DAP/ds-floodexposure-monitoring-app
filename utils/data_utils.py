@@ -2,6 +2,7 @@ import time
 from typing import Literal
 
 import pandas as pd
+from dash import dcc
 from sqlalchemy import create_engine, text
 
 from constants import (
@@ -128,7 +129,12 @@ def get_summary(df_exposure, df_adm, adm_level, tercile):
     # TODO: Remove need for mapping
     tercile_label = {-1: "below average", 0: "average", 1: "above average"}
 
-    return (
-        name,
-        f"{people_exposed_formatted} people exposed to flooding as of {max_date}. This is {tercile_label[tercile]} for this time of year.",  # noqa
+    summary_text = dcc.Markdown(
+        f"""
+        **{people_exposed_formatted}** people exposed to flooding as of **{max_date}**.
+
+        This is **{tercile_label[tercile]}** for this time of year.
+        """
     )
+
+    return (name, summary_text)
