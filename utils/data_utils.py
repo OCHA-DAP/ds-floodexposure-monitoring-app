@@ -111,6 +111,19 @@ def calculate_return_periods(df_peaks, rp: int = 3):
     return df_peaks.sort_values(by="rp"), peak_years
 
 
+def get_current_terciles(adm_level):
+    engine = get_engine()
+    query = text(
+        """
+        select * from app.current_tercile
+        where adm_level=:adm_level
+        """
+    )
+    with engine.connect() as con:
+        df = pd.read_sql_query(query, con, params={"adm_level": adm_level})
+    return df
+
+
 def get_summary(df_exposure, df_adm, adm_level, tercile):
     name = df_adm.iloc[0][f"adm{adm_level}_name"]
     max_date = f"{df_exposure['date'].max():%Y-%m-%d}"  # noqa

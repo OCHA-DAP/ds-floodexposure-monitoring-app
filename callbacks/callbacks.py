@@ -12,6 +12,7 @@ from utils.chart_utils import create_return_period_plot, create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
     fetch_flood_data,
+    get_current_terciles,
     get_summary,
     process_flood_data,
 )
@@ -79,7 +80,7 @@ def register_callbacks(app):
             data = json.load(file)
 
         # TODO: Read from db
-        df_tercile = pd.read_csv(f"temp/adm{adm_level}_terciles.csv")
+        df_tercile = get_current_terciles(adm_level)
         features_df = pd.DataFrame(
             [feature["properties"] for feature in data["features"]]
         )
