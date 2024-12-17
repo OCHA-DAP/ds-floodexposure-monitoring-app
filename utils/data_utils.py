@@ -119,10 +119,17 @@ def calculate_return_periods(df_peaks, rp: int = 3):
 
 
 def get_current_terciles(adm_level):
+
+    tercile_table = (
+        "current_tercile_regions"
+        if adm_level == "region"
+        else "current_tercile"
+    )
+
     engine = get_engine()
     query = text(
-        """
-        select * from app.current_tercile
+        f"""
+        select * from app.{tercile_table}
         where adm_level=:adm_level
         """
     )
