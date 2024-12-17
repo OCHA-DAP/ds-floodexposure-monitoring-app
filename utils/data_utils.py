@@ -3,7 +3,6 @@ from typing import Literal
 
 import pandas as pd
 from sqlalchemy import create_engine, text
-from utils.log_utils import get_logger
 
 from constants import (
     AZURE_DB_BASE_URL,
@@ -12,6 +11,7 @@ from constants import (
     AZURE_DB_UID,
     ROLLING_WINDOW,
 )
+from utils.log_utils import get_logger
 
 logger = get_logger("data")
 
@@ -34,27 +34,20 @@ def get_engine(stage: Literal["dev", "prod"] = "dev"):
 
 def fetch_flood_data(pcode, adm_level):
     """Fetch flood exposure and administrative data from database."""
-    if adm_level == "region":
-        parts = pcode.split("_region_")
-        iso3 = parts[0].upper()
-        region_number = int(parts[1])
-        query_exposure = text(
-            """
-            SELECT *
-            FROM app.floodscan_exposure_regions
-            WHERE iso3=:iso3 AND region_number=:region_number
-            """
-        )
-        params = {"iso3": iso3, "region_number": region_number}
-    else:
-        query_exposure = text(
-            """
-            SELECT *
-            FROM app.floodscan_exposure
-            WHERE pcode=:pcode AND adm_level=:adm_level
-            """
-        )
-        params = {"pcode": pcode, "adm_level": adm_level}
+    flood_table = (
+        "floodscan_exposure_regions"
+        if adm_level == "region"
+        else "floodscan_exposure"
+    )
+
+    query_exposure = text(
+        f"""
+        SELECT *
+        FROM app.{flood_table}
+        WHERE pcode=:pcode AND adm_level=:adm_level
+        """
+    )
+    params = {"pcode": pcode, "adm_level": adm_level}
     query_adm = text("select * from app.adm")
     logger.info(f"Getting flood exposure data for {pcode}...")
     start = time.time()
