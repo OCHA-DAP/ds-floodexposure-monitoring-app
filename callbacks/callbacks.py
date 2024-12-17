@@ -1,41 +1,49 @@
+import json
+
 import dash_leaflet as dl
+import dash_leaflet.express as dlx
 import dash_mantine_components as dmc
+import pandas as pd
 from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
+
+from constants import ATTRIBUTION, URL, URL_LABELS
 from utils.chart_utils import create_return_period_plot, create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
     fetch_flood_data,
+    get_current_terciles,
     get_summary,
     process_flood_data,
 )
 from utils.log_utils import get_logger
-
-from constants import ATTRIBUTION, URL, URL_LABELS
 
 logger = get_logger("callbacks")
 
 style_handle = assign(
     """
     function(feature, context) {
-        const selected = context.hideout.selected
+        const {colorscale, style, colorProp, selected} = context.hideout;  // get props from hideout
+        const value = feature.properties[colorProp];  // get value that determines the color
+        let featureStyle = {...style};
 
-        if(selected.includes(feature.properties.pcode)){
-            return {
-                fillColor: '#1f77b4',
-                weight: 0.8,
-                opacity: 1,
-                color: 'white',
-                fillOpacity: 0.8
-            }
+        // Only modify opacity if this feature's pcode matches selected
+        if (selected === feature.properties.pcode) {
+            featureStyle.fillOpacity = 1;
+            featureStyle.color = "black";
+            featureStyle.weight = 1;
         }
-        return {
-            fillColor: '#1f77b4',
-            weight: 0.8,
-            opacity: 1,
-            color: 'white',
-            fillOpacity: 0.3
+
+        // Set color based on value
+        if (value === -1) {
+            featureStyle.fillColor = colorscale[0];
+        } else if (value === 0) {
+            featureStyle.fillColor = colorscale[1];
+        } else if (value === 1) {
+            featureStyle.fillColor = colorscale[2];
         }
+
+        return featureStyle;
     }
 """
 )
@@ -43,7 +51,7 @@ style_handle = assign(
 
 def register_callbacks(app):
     @app.callback(
-        Output("selected-pcode", "data"),
+        Output("selected-data", "data"),
         Output("geojson", "hideout"),
         Input("geojson", "n_clicks"),
         State("adm-level", "value"),
@@ -58,23 +66,66 @@ def register_callbacks(app):
             return no_update
 
         name = feature["properties"]["pcode"]
+        tercile = feature["properties"]["tercile"]
+        print(tercile)
         if hideout["selected"] == name:
             hideout["selected"] = ""
         else:
             hideout["selected"] = name
-        return name, hideout
+        return feature["properties"], hideout
 
     @app.callback(Output("map", "children"), Input("adm-level", "value"))
     def set_adm_value(adm_level):
+        with open(f"assets/geo/adm{adm_level}.json", "r") as file:
+            data = json.load(file)
+
+        df_tercile = get_current_terciles(adm_level)
+        features_df = pd.DataFrame(
+            [feature["properties"] for feature in data["features"]]
+        )
+        df_joined = features_df.merge(
+            df_tercile[["pcode", "tercile"]], on="pcode", how="left"
+        )
+        for feature, tercile in zip(data["features"], df_joined["tercile"]):
+            feature["properties"]["tercile"] = tercile
+
+        colorscale = ["#6baed6", "#dbdbdb", "#fcae91"]
+        colorbar = dlx.categorical_colorbar(
+            categories=["Below normal", "Normal", "Above normal"],
+            colorscale=colorscale,
+            width=300,
+            height=15,
+            position="bottomleft",
+        )
+        title = html.Div(
+            "Population exposed to flooding is...",
+            style={
+                "position": "absolute",
+                "bottom": "40px",
+                "left": "10px",
+                "zIndex": 1000,
+                "fontSize": "12px",
+                "paddingBottom": "5px",
+                "fontWeight": "bold",
+            },
+        )
+
+        style = dict(weight=1, opacity=1, color="white", fillOpacity=0.5)
+
         geojson = dl.GeoJSON(
-            url=f"assets/geo/adm{adm_level}.json",
+            data=data,
             id="geojson",
             style=style_handle,
-            hideout=dict(selected=""),
-            hoverStyle=arrow_function(
-                {"fillColor": "#1f77b4", "fillOpacity": 0.8}
+            hideout=dict(
+                colorscale=colorscale,
+                style=style,
+                colorProp="tercile",
+                selected="",
             ),
-            zoomToBounds=True,
+            hoverStyle=arrow_function(
+                {"fillOpacity": 1, "weight": 1, "color": "black"}
+            ),
+            zoomToBounds=False,
         )
         adm0 = dl.GeoJSON(
             url="assets/geo/adm0_outline.json",
@@ -91,6 +142,8 @@ def register_callbacks(app):
                 name="tile",
                 style={"zIndex": 1002},
             ),
+            title,
+            colorbar,
         ]
 
     @app.callback(
@@ -98,12 +151,12 @@ def register_callbacks(app):
         Output("rp-chart", "children"),
         Output("place-name", "children"),
         Output("num-exposed", "children"),
-        Input("selected-pcode", "data"),
+        Input("selected-data", "data"),
         State("adm-level", "value"),
         prevent_initial_call=False,
     )
-    def update_plot(pcode, adm_level):
-        if not pcode:
+    def update_plot(selected_data, adm_level):
+        if not selected_data:
             blank_children = [
                 dmc.Space(h=100),
                 dmc.Center(html.Div("Select a location from the map above")),
@@ -114,6 +167,10 @@ def register_callbacks(app):
                 dmc.Center("No location selected"),
                 "",
             )
+
+        pcode = selected_data["pcode"]
+        tercile = selected_data["tercile"]
+
         df_exposure, df_adm = fetch_flood_data(pcode, adm_level)
 
         if len(df_exposure) == 0:
@@ -145,10 +202,11 @@ def register_callbacks(app):
             config={"displayModeBar": False}, figure=fig_timeseries
         )
         rp_chart = dcc.Graph(config={"displayModeBar": False}, figure=fig_rp)
-        name, exposed_summary = get_summary(df_processed, df_adm, adm_level)
+        name, exposed_summary = get_summary(
+            df_processed, df_adm, adm_level, tercile
+        )
         return exposure_chart, rp_chart, name, exposed_summary
 
-    # TODO: Would be better as a clientside callback, but couldn't seem to get it to work...
     @app.callback(
         Output("hover-place-name", "children"), Input("geojson", "hoverData")
     )

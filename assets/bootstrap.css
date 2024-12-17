@@ -56,6 +56,10 @@
   src: local('Stag Regular'), url('Stag Regular.woff') format('woff');
 }
 
+.leaflet-container .mantine-ye2q1m {
+  font-family: var(--bs-font-sans-serif);
+}
+
 body {
   margin: 0;
   font-family: var(--bs-font-sans-serif);

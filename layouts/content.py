@@ -149,8 +149,8 @@ def map_container():
             dl.Map(
                 [dl.TileLayer(url=URL, attribution=ATTRIBUTION)],
                 style={"width": "100%", "height": "100%"},
-                center=[0, 0],
-                zoom=2,
+                center=[8, 22],
+                zoom=4,
                 id="map",
             ),
             dmc.Select(
