@@ -79,7 +79,6 @@ def register_callbacks(app):
         with open(f"assets/geo/adm{adm_level}.json", "r") as file:
             data = json.load(file)
 
-        # TODO: Read from db
         df_tercile = get_current_terciles(adm_level)
         features_df = pd.DataFrame(
             [feature["properties"] for feature in data["features"]]
@@ -90,14 +89,9 @@ def register_callbacks(app):
         for feature, tercile in zip(data["features"], df_joined["tercile"]):
             feature["properties"]["tercile"] = tercile
 
-        colorscale = [
-            "#6baed6",  # Medium blue
-            "#dbdbdb",
-            "#fcae91",  # Light red
-        ]
-
+        colorscale = ["#6baed6", "#dbdbdb", "#fcae91"]
         colorbar = dlx.categorical_colorbar(
-            categories=["Below average", "Average", "Above average"],
+            categories=["Below normal", "Normal", "Above normal"],
             colorscale=colorscale,
             width=300,
             height=15,

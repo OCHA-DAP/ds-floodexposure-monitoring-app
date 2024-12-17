@@ -139,14 +139,13 @@ def get_summary(df_exposure, df_adm, adm_level, tercile):
     )
     people_exposed_formatted = "{:,}".format(people_exposed)
 
-    # TODO: Remove need for mapping
-    tercile_label = {-1: "below average", 0: "average", 1: "above average"}
+    tercile_label = {-1: "below normal", 0: "normal", 1: "above normal"}
 
     summary_text = dcc.Markdown(
         f"""
         **{people_exposed_formatted}** people exposed to flooding as of **{max_date}**.
 
-        This is **{tercile_label[tercile]}** for this time of year.
+        This is **{tercile_label[tercile]}** for this day of the year.
         """
     )
 
