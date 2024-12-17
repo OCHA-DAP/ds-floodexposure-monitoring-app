@@ -206,3 +206,10 @@ def register_callbacks(app):
             df_processed, df_adm, adm_level, tercile
         )
         return exposure_chart, rp_chart, name, exposed_summary
+
+    @app.callback(
+        Output("hover-place-name", "children"), Input("geojson", "hoverData")
+    )
+    def info_hover(feature):
+        if feature:
+            return feature["properties"]["name"]
