@@ -37,10 +37,28 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years):
                 x=df_year["eff_date"],
                 y=df_year[f"roll{ROLLING_WINDOW}"],
                 name=str(year),
+                mode="lines",
                 line_color=color,
                 line_width=linewidth,
             )
         )
+
+    # Highlight most recent date
+    date_max = df_processed.date.max()
+    date_1900 = date_max.replace(year=1900)
+    date_1900 = date_1900.timestamp() * 1000
+    date_formatted = date_max.strftime("%Y-%m-%d")
+
+    fig.add_vline(
+        x=date_1900,
+        line_dash="dash",
+        line_color="red",
+        line_width=1,
+        opacity=1,
+        annotation_text=f"  Data updated<br>{date_formatted}",
+        annotation_position="top right",
+        annotation_font_color="red",
+    )
 
     fig.update_layout(
         template="simple_white",
