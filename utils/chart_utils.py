@@ -1,6 +1,6 @@
 import plotly.graph_objects as go
 
-from constants import CHD_GREEN, ROLLING_WINDOW
+from constants import CHD_GREEN, CUR_YEAR, ROLLING_WINDOW
 
 
 def create_timeseries_plot(df_seasonal, df_processed, peak_years):
@@ -24,12 +24,12 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years):
     for year in df_processed["date"].dt.year.unique():
         color = (
             CHD_GREEN
-            if year == 2024
+            if year == CUR_YEAR
             else "red"
             if year in peak_years
             else "grey"
         )
-        linewidth = 3 if year == 2024 else 0.2
+        linewidth = 3 if year == CUR_YEAR else 0.2
 
         df_year = df_processed[df_processed["date"].dt.year == year]
         fig.add_trace(
@@ -74,25 +74,25 @@ def create_return_period_plot(df_peaks, rp=3):
         )
     )
 
-    # Add 2024 point
-    df_peak_2024 = df_peaks.set_index("date").loc[2024]
+    # Add point for current year
+    df_peak_cur = df_peaks.set_index("date").loc[CUR_YEAR]
     position = (
         "bottom left"
-        if df_peak_2024["rank"] == 1
+        if df_peak_cur["rank"] == 1
         else (
             "top right"
-            if df_peak_2024["rank"] == len(df_peaks)
+            if df_peak_cur["rank"] == len(df_peaks)
             else "bottom right"
         )
     )
 
     fig.add_trace(
         go.Scatter(
-            x=[df_peak_2024["rp"]],
-            y=[df_peak_2024[f"roll{ROLLING_WINDOW}"]],
+            x=[df_peak_cur["rp"]],
+            y=[df_peak_cur[f"roll{ROLLING_WINDOW}"]],
             name="current year",
             mode="markers+text",
-            text="2024",
+            text=CUR_YEAR,
             textposition=position,
             marker_color=CHD_GREEN,
             textfont=dict(size=15, color=CHD_GREEN),
@@ -102,7 +102,7 @@ def create_return_period_plot(df_peaks, rp=3):
 
     # Add other significant years
     df_rp_peaks = df_peaks[
-        (df_peaks[f"{rp}yr_rp"]) & (df_peaks["date"] != 2024)
+        (df_peaks[f"{rp}yr_rp"]) & (df_peaks["date"] != CUR_YEAR)
     ]
     fig.add_trace(
         go.Scatter(
