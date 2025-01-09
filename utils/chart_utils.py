@@ -52,12 +52,12 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years):
     fig.add_vline(
         x=date_1900,
         line_dash="dash",
-        line_color="red",
+        line_color="black",
         line_width=1,
         opacity=1,
         annotation_text=f"  Data updated<br>{date_formatted}",
         annotation_position="top right",
-        annotation_font_color="red",
+        annotation_font_color="black",
     )
 
     fig.update_layout(
