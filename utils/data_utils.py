@@ -10,6 +10,7 @@ from constants import (
     AZURE_DB_PW_DEV,
     AZURE_DB_PW_PROD,
     AZURE_DB_UID,
+    CUR_YEAR,
     ROLLING_WINDOW,
 )
 from utils.log_utils import get_logger
@@ -83,7 +84,7 @@ def process_flood_data(df_exposure):
     df_exposure["date"] = pd.to_datetime(df_exposure["date"])
     df_exposure["dayofyear"] = df_exposure["date"].dt.dayofyear
     df_seasonal = (
-        df_exposure[df_exposure["date"].dt.year < 2024]
+        df_exposure[df_exposure["date"].dt.year < CUR_YEAR]
         .groupby("dayofyear")[val_col]
         .mean()
         .reset_index()
@@ -119,7 +120,6 @@ def calculate_return_periods(df_peaks, rp: int = 3):
 
 
 def get_current_terciles(adm_level):
-
     tercile_table = (
         "current_tercile_regions"
         if adm_level == "region"
