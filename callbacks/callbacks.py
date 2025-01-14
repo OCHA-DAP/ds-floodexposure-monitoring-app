@@ -35,12 +35,16 @@ style_handle = assign(
         }
 
         // Set color based on value
-        if (value === -1) {
+        if (value === -2) {
             featureStyle.fillColor = colorscale[0];
-        } else if (value === 0) {
+        } else if (value === -1) {
             featureStyle.fillColor = colorscale[1];
-        } else if (value === 1) {
+        } else if (value === 0) {
             featureStyle.fillColor = colorscale[2];
+        } else if (value === 1) {
+            featureStyle.fillColor = colorscale[3];
+        } else if (value === 2) {
+            featureStyle.fillColor = colorscale[4];
         }
 
         return featureStyle;
@@ -66,8 +70,6 @@ def register_callbacks(app):
             return no_update
 
         name = feature["properties"]["pcode"]
-        tercile = feature["properties"]["tercile"]
-        print(tercile)
         if hideout["selected"] == name:
             hideout["selected"] = ""
         else:
@@ -89,9 +91,15 @@ def register_callbacks(app):
         for feature, tercile in zip(data["features"], df_joined["tercile"]):
             feature["properties"]["tercile"] = tercile
 
-        colorscale = ["#6baed6", "#dbdbdb", "#fcae91"]
+        colorscale = ["#08519c", "#6baed6", "#dbdbdb", "#fcae91", "#a63603"]
         colorbar = dlx.categorical_colorbar(
-            categories=["Below normal", "Normal", "Above normal"],
+            categories=[
+                "Very below normal",
+                "Below normal",
+                "Normal",
+                "Above normal",
+                "Very above normal",
+            ],
             colorscale=colorscale,
             width=300,
             height=15,

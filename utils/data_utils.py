@@ -153,7 +153,13 @@ def get_summary(df_exposure, df_adm, adm_level, tercile):
     )
     people_exposed_formatted = "{:,}".format(people_exposed)
 
-    tercile_label = {-1: "below normal", 0: "normal", 1: "above normal"}
+    tercile_label = {
+        -2: "very below normal",
+        -1: "below normal",
+        0: "normal",
+        1: "above normal",
+        2: "very above normal",
+    }
 
     summary_text = dcc.Markdown(
         f"""
