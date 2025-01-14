@@ -12,7 +12,7 @@ from utils.chart_utils import create_return_period_plot, create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
     fetch_flood_data,
-    get_current_terciles,
+    get_current_quantiles,
     get_summary,
     process_flood_data,
 )
@@ -81,17 +81,17 @@ def register_callbacks(app):
         with open(f"assets/geo/adm{adm_level}.json", "r") as file:
             data = json.load(file)
 
-        df_tercile = get_current_terciles(adm_level)
+        df_quantile = get_current_quantiles(adm_level)
         features_df = pd.DataFrame(
             [feature["properties"] for feature in data["features"]]
         )
         df_joined = features_df.merge(
-            df_tercile[["pcode", "tercile"]], on="pcode", how="left"
+            df_quantile[["pcode", "quantile"]], on="pcode", how="left"
         )
-        for feature, tercile in zip(data["features"], df_joined["tercile"]):
-            feature["properties"]["tercile"] = tercile
+        for feature, quantile in zip(data["features"], df_joined["quantile"]):
+            feature["properties"]["quantile"] = quantile
 
-        colorscale = ["#08519c", "#6baed6", "#dbdbdb", "#fcae91", "#a63603"]
+        colorscale = ["#08519c", "#6baed6", "#dbdbdb", "#ffded2", "#ff8b61"]
         colorbar = dlx.categorical_colorbar(
             categories=[
                 "Very below normal",
@@ -101,7 +101,7 @@ def register_callbacks(app):
                 "Very above normal",
             ],
             colorscale=colorscale,
-            width=300,
+            width=500,
             height=15,
             position="bottomleft",
         )
@@ -127,7 +127,7 @@ def register_callbacks(app):
             hideout=dict(
                 colorscale=colorscale,
                 style=style,
-                colorProp="tercile",
+                colorProp="quantile",
                 selected="",
             ),
             hoverStyle=arrow_function(
@@ -177,7 +177,7 @@ def register_callbacks(app):
             )
 
         pcode = selected_data["pcode"]
-        tercile = selected_data["tercile"]
+        quantile = selected_data["quantile"]
 
         df_exposure, df_adm = fetch_flood_data(pcode, adm_level)
 
@@ -211,7 +211,7 @@ def register_callbacks(app):
         )
         rp_chart = dcc.Graph(config={"displayModeBar": False}, figure=fig_rp)
         name, exposed_summary = get_summary(
-            df_processed, df_adm, adm_level, tercile
+            df_processed, df_adm, adm_level, quantile
         )
         return exposure_chart, rp_chart, name, exposed_summary
 
