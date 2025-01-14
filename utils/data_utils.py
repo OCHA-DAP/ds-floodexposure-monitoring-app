@@ -86,7 +86,7 @@ def process_flood_data(df_exposure):
     df_seasonal = (
         df_exposure[df_exposure["date"].dt.year < CUR_YEAR]
         .groupby("dayofyear")[val_col]
-        .mean()
+        .median()
         .reset_index()
     )
     df_seasonal["eff_date"] = pd.to_datetime(
