@@ -1,13 +1,6 @@
 import plotly.graph_objects as go
 
-from constants import (
-    CHD_BLUE,
-    CHD_GREEN,
-    CHD_GREY,
-    CHD_LIGHTBLUE,
-    CUR_YEAR,
-    ROLLING_WINDOW,
-)
+from constants import CHD_BLUE, CHD_GREEN, CHD_GREY, CUR_YEAR, ROLLING_WINDOW
 
 
 def create_timeseries_plot(df_seasonal, df_processed, peak_years):
@@ -29,7 +22,7 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years):
 
     # Add yearly traces
     for year in df_processed["date"].dt.year.unique():
-        color = CHD_BLUE if year == CUR_YEAR else CHD_LIGHTBLUE
+        color = CHD_BLUE
         linewidth = 3 if year == CUR_YEAR else 0.2
 
         df_year = df_processed[df_processed["date"].dt.year == year]

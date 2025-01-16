@@ -138,7 +138,7 @@ def register_callbacks(app):
         adm0 = dl.GeoJSON(
             url="assets/geo/adm0_outline.json",
             id="adm0-geojson",
-            style={"color": "black", "weight": 1.5},
+            style={"color": "#353535", "weight": 1.5},
         )
 
         return [
