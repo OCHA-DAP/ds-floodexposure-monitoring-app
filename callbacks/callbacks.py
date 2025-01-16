@@ -94,14 +94,14 @@ def register_callbacks(app):
         colorscale = ["#0063b3", "#66b0ec", "#cccccc", "#fce0de", "#f2645a"]
         colorbar = dlx.categorical_colorbar(
             categories=[
-                "Very below normal",
+                "Very below<br>normal",
                 "Below normal",
                 "Normal",
                 "Above normal",
-                "Very above normal",
+                "Very above<br>normal",
             ],
             colorscale=colorscale,
-            width=500,
+            width=300,
             height=15,
             position="bottomleft",
         )
@@ -109,7 +109,7 @@ def register_callbacks(app):
             "Population exposed to flooding is...",
             style={
                 "position": "absolute",
-                "bottom": "40px",
+                "bottom": "60px",
                 "left": "10px",
                 "zIndex": 1000,
                 "fontSize": "12px",
