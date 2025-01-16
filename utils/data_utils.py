@@ -140,7 +140,7 @@ def get_current_quantiles(adm_level):
 
 def get_summary(df_exposure, df_adm, adm_level, quantile):
     name = df_adm.iloc[0][f"adm{adm_level}_name"]
-    max_date = f"{df_exposure['date'].max():%Y-%m-%d}"  # noqa
+    max_date = f"{df_exposure['date'].max():%b %d, %Y}"  # noqa
     val_col = f"roll{ROLLING_WINDOW}"
 
     df_ = df_exposure[df_exposure["date"] == max_date]
