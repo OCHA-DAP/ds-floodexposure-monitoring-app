@@ -155,12 +155,15 @@ def create_return_period_plot(df_peaks, rp=3):
         )
     )
 
+    y_max = df_peaks[f"roll{ROLLING_WINDOW}"].max()
+    tick_interval = round(y_max / 4, -3)
+
     fig.update_layout(
         template="simple_white",
         xaxis=dict(dtick=5, ticklen=0, color=CHD_GREY),
         yaxis=dict(
             ticklen=0,
-            dtick=25000,
+            dtick=tick_interval,
             color=CHD_GREY,
             showgrid=True,
             gridwidth=1,
