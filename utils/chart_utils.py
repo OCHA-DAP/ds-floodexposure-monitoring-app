@@ -1,6 +1,6 @@
 import plotly.graph_objects as go
 
-from constants import CHD_BLUE, CHD_GREEN, CHD_GREY, CUR_YEAR, ROLLING_WINDOW
+from constants import CHD_BLUE, CHD_GREY, CHD_RED, CUR_YEAR, ROLLING_WINDOW
 
 
 def create_timeseries_plot(df_seasonal, df_processed, peak_years):
@@ -107,7 +107,7 @@ def create_return_period_plot(df_peaks, rp=3):
             y=df_peaks[f"roll{ROLLING_WINDOW}"],
             name="all years",
             mode="lines",
-            line_color="black",
+            line_color="#353535",
         )
     )
 
@@ -131,8 +131,8 @@ def create_return_period_plot(df_peaks, rp=3):
             mode="markers+text",
             text=CUR_YEAR,
             textposition=position,
-            marker_color=CHD_GREEN,
-            textfont=dict(size=15, color=CHD_GREEN),
+            marker_color=CHD_BLUE,
+            textfont=dict(size=15, color=CHD_BLUE),
             marker_size=10,
         )
     )
@@ -149,21 +149,35 @@ def create_return_period_plot(df_peaks, rp=3):
             name="≥3-yr RP years",
             textposition="top left",
             mode="markers+text",
-            marker_color="red",
-            textfont=dict(size=12, color="red"),
+            marker_color=CHD_RED,
+            textfont=dict(size=12, color=CHD_RED),
             marker_size=5,
         )
     )
 
     fig.update_layout(
         template="simple_white",
-        xaxis=dict(dtick=1),
+        xaxis=dict(dtick=5, ticklen=0, color=CHD_GREY),
+        yaxis=dict(
+            ticklen=0,
+            dtick=25000,
+            color=CHD_GREY,
+            showgrid=True,
+            gridwidth=1,
+            gridcolor="#eeeeee",
+            zeroline=False,
+        ),
         height=340,
         showlegend=False,
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
         font=dict(family="Arial, sans-serif"),
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=11,
+            font_family="Source Sans Pro, sans-serif",
+        ),
     )
-    fig.update_yaxes(title="Maximum daily flood exposure during year")
+    fig.update_yaxes(title="Maximum population exposed")
     fig.update_xaxes(title="Return period (years)")
 
     return fig
