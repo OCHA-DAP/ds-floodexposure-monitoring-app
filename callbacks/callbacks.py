@@ -91,7 +91,7 @@ def register_callbacks(app):
         for feature, quantile in zip(data["features"], df_joined["quantile"]):
             feature["properties"]["quantile"] = quantile
 
-        colorscale = ["#08519c", "#6baed6", "#dbdbdb", "#ffded2", "#ff8b61"]
+        colorscale = ["#0063b3", "#66b0ec", "#cccccc", "#fce0de", "#f2645a"]
         colorbar = dlx.categorical_colorbar(
             categories=[
                 "Very below normal",
@@ -138,7 +138,7 @@ def register_callbacks(app):
         adm0 = dl.GeoJSON(
             url="assets/geo/adm0_outline.json",
             id="adm0-geojson",
-            style={"color": "black", "weight": 3},
+            style={"color": "black", "weight": 1.5},
         )
 
         return [

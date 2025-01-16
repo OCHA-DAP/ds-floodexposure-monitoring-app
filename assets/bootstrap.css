@@ -27,7 +27,7 @@
   --bs-danger: #dc3545;
   --bs-light: #f8f9fa;
   --bs-dark: #212529;
-  --bs-font-serif: Stag Regular;
+  --bs-font-serif: "Gotham Book", sans-serif;
   --bs-font-sans-serif: Source Sans Pro,sans-serif;
   --bs-font-monospace: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --bs-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0));
@@ -35,6 +35,10 @@
 
 .header, h2 {
   font-family: var(--bs-font-serif);
+}
+
+.bold {
+  font-family: "Gotham Bold";
 }
 
 *,
@@ -50,12 +54,17 @@
 }
 
 @font-face {
-  font-family: 'Stag Regular';
-  font-style: normal;
-  font-weight: normal;
-  src: local('Stag Regular'), url('Stag Regular.woff') format('woff');
+  font-family: 'Gotham Bold';
+  src: url('Gotham-Bold.otf');
 }
-
+@font-face {
+  font-family: 'Gotham Light';
+  src: url('Gotham-Light.otf');
+}
+@font-face {
+  font-family: 'Gotham Book';
+  src: url('Gotham-Book.otf');
+}
 .leaflet-container .mantine-ye2q1m {
   font-family: var(--bs-font-sans-serif);
 }
