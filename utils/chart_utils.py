@@ -66,7 +66,7 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years):
         ),
         yaxis=dict(ticklen=0),
         legend_title="Year<br><sup>(click to toggle)</sup>",
-        height=340,
+        height=240,
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
         font=dict(
             family="Source Sans Pro, sans-serif",
@@ -170,7 +170,7 @@ def create_return_period_plot(df_peaks, rp=3):
             gridcolor="#eeeeee",
             zeroline=False,
         ),
-        height=340,
+        height=240,
         showlegend=False,
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
         font=dict(family="Arial, sans-serif"),

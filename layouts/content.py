@@ -201,29 +201,29 @@ def chart_card(title, chart_id, chart_gutter=15):
             card_title(title),
             dmc.LoadingOverlay(
                 html.Div(id=chart_id),
-                style={"height": "100%", "marginLeft": "5px"},
+                style={"marginLeft": "5px"},
             ),
         ],
     )
 
 
 def chart_container():
-    charts_height = "400px"
+    charts_height = "300px"
     return [
         dbc.Col(
-            width=6,
+            width=12,
             children=chart_card(
                 "Daily population exposed to flooding",
                 chart_id="exposure-chart",
             ),
-            style={"height": charts_height},
+            style={"height": charts_height, "marginBottom": "15px"},
         ),
         dbc.Col(
-            width=6,
+            width=12,
             children=chart_card(
                 "Return period of annual maximum flood exposure",
                 chart_id="rp-chart",
             ),
-            style={"height": charts_height},
+            style={"height": charts_height, "marginBottom": "15px"},
         ),
     ]
