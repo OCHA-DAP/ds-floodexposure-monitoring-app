@@ -6,7 +6,7 @@ from dash import dcc, html
 from constants import ATTRIBUTION, URL
 
 NAVBAR_HEIGHT = 60 + 48
-GUTTER = 10
+GUTTER = 0
 
 
 def content():
@@ -25,6 +25,7 @@ def content():
                     style={
                         "backgroundColor": "#f5f5f5",
                         "height": f"calc(100vh - {NAVBAR_HEIGHT}px)",
+                        "overflowY": "scroll",
                     },
                     children=[
                         # -- Map --
@@ -34,25 +35,15 @@ def content():
                                 "backgroundColor": "white",
                                 "height": f"calc(100% - {400 + GUTTER * 3}px)",
                                 "border": "1px solid #dbdbdb",
-                                "minHeight": "150px",
+                                "minHeight": "300px",
                                 "marginTop": f"{GUTTER}px",
                             },
                             className="g-0",
                         ),
                         # -- Chart --
-                        dbc.Row(
-                            dbc.Col(chart_container()),
-                            style={
-                                "border": "1px solid #dbdbdb",
-                                "backgroundColor": "white",
-                                "height": "400px",
-                                "marginTop": f"{GUTTER}px",
-                                "marginBottom": f"{GUTTER}px",
-                                "padding": "10px",
-                            },
-                            className="g-0",
-                        ),
+                        dbc.Row(chart_container(), className="g-0"),
                     ],
+                    className="g-0",
                 ),
             ],
             style={"backgroundColor": "#f5f5f5"},
@@ -184,22 +175,55 @@ def map_container():
     )
 
 
-def chart_container():
-    exposure_tab = html.Div(
-        style={"backgroundColor": "white", "width": "100%", "height": "100%"},
-        children=dmc.LoadingOverlay(
-            html.Div(id="exposure-chart"), style={"height": "100%"}
-        ),
+def card_title(text):
+    return html.Div(
+        style={
+            "height": "40px",
+            "padding": "10px",
+            "borderBottom": "1px solid #dbdbdb",
+        },
+        children=text,
+        className="header",
     )
-    severity_tab = html.Div(
-        style={"backgroundColor": "white", "width": "100%", "height": "100%"},
-        children=dmc.LoadingOverlay(
-            html.Div(id="rp-chart"), style={"height": "100%"}
-        ),
-    )
-    return dbc.Tabs(
-        [
-            dbc.Tab(exposure_tab, label="Time series", tabClassName="ms-auto"),
-            dbc.Tab(severity_tab, label="Return Period"),
+
+
+def chart_card(title, chart_id, chart_gutter=15):
+    return html.Div(
+        style={
+            "width": f"calc(100%-{chart_gutter*2}px)",
+            "height": "100%",
+            "margin": f"{chart_gutter}px",
+            "backgroundColor": "white",
+            # "border": "1px solid #dbdbdb",
+            "borderRadius": "5px",
+        },
+        children=[
+            card_title(title),
+            dmc.LoadingOverlay(
+                html.Div(id=chart_id),
+                style={"height": "100%", "marginLeft": "5px"},
+            ),
         ],
     )
+
+
+def chart_container():
+    charts_height = "400px"
+    return [
+        dbc.Col(
+            width=6,
+            children=chart_card(
+                "Daily population exposed to flooding",
+                chart_id="exposure-chart",
+            ),
+            style={"height": charts_height},
+        ),
+        dbc.Col(
+            width=6,
+            children=chart_card(
+                "Return period of annual maximum flood exposure",
+                chart_id="rp-chart",
+            ),
+            style={"height": charts_height},
+        ),
+    ]

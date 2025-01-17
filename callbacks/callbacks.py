@@ -167,7 +167,12 @@ def register_callbacks(app):
         if not selected_data:
             blank_children = [
                 dmc.Space(h=100),
-                dmc.Center(html.Div("Select a location from the map above")),
+                dmc.Center(
+                    html.Div(
+                        "Select a location from the map above",
+                        style={"color": "#888888"},
+                    )
+                ),
             ]
             return (
                 blank_children,
