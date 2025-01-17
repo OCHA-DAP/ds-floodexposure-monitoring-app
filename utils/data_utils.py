@@ -155,11 +155,11 @@ def get_summary(df_exposure, df_adm, adm_level, quantile):
     people_exposed_formatted = "{:,}".format(people_exposed)
 
     quantile_label = {
-        -2: "very below normal",
+        -2: "well below normal",
         -1: "below normal",
         0: "normal",
         1: "above normal",
-        2: "very above normal",
+        2: "well above normal",
     }
 
     summary_text = dcc.Markdown(

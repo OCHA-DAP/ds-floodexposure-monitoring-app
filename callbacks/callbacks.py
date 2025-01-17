@@ -94,11 +94,11 @@ def register_callbacks(app):
         colorscale = ["#0063b3", "#66b0ec", "#cccccc", "#fce0de", "#f2645a"]
         colorbar = dlx.categorical_colorbar(
             categories=[
-                "Very below<br>normal",
+                "Well below<br>normal",
                 "Below normal",
                 "Normal",
                 "Above normal",
-                "Very above<br>normal",
+                "Well above<br>normal",
             ],
             colorscale=colorscale,
             width=300,
