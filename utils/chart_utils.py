@@ -22,7 +22,13 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years):
 
     # Add yearly traces
     for year in df_processed["date"].dt.year.unique():
-        color = CHD_BLUE
+        color = (
+            CHD_BLUE
+            if year == CUR_YEAR
+            else CHD_RED
+            if year in peak_years
+            else CHD_BLUE
+        )
         linewidth = 3 if year == CUR_YEAR else 0.2
 
         df_year = df_processed[df_processed["date"].dt.year == year]

@@ -1,7 +1,7 @@
 import dash_bootstrap_components as dbc
 from dash import html
 
-from constants import CHD_MINT, NAVBAR_HEIGHT
+from constants import CHD_GREEN, NAVBAR_HEIGHT
 
 
 def navbar():
@@ -43,7 +43,7 @@ def navbar():
             "margin": "0px",
             "padding": "10px",
         },
-        color=CHD_MINT,
+        color=CHD_GREEN,
         dark=True,
     )
 
