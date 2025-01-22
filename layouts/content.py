@@ -175,7 +175,7 @@ def map_container():
     )
 
 
-def card_title(text):
+def card_title(text, chart_id):
     return html.Div(
         style={
             "height": "40px",
@@ -183,6 +183,7 @@ def card_title(text):
             "borderBottom": "1px solid #dbdbdb",
         },
         children=text,
+        id=f"{chart_id}-title",
         className="header",
     )
 
@@ -194,11 +195,10 @@ def chart_card(title, chart_id, chart_gutter=15):
             "height": "100%",
             "margin": f"{chart_gutter}px",
             "backgroundColor": "white",
-            # "border": "1px solid #dbdbdb",
             "borderRadius": "5px",
         },
         children=[
-            card_title(title),
+            card_title(title, chart_id),
             dmc.LoadingOverlay(
                 html.Div(id=chart_id),
                 style={"marginLeft": "5px"},

@@ -159,11 +159,16 @@ def register_callbacks(app):
         Output("rp-chart", "children"),
         Output("place-name", "children"),
         Output("num-exposed", "children"),
+        Output("exposure-chart-title", "children"),
+        Output("rp-chart-title", "children"),
         Input("selected-data", "data"),
         State("adm-level", "value"),
         prevent_initial_call=False,
     )
     def update_plot(selected_data, adm_level):
+        exposed_plot_title = "Daily population exposed to flooding"
+        rp_plot_title = "Return period of annual maximum flood exposure"
+
         if not selected_data:
             blank_children = [
                 dmc.Space(h=100),
@@ -179,6 +184,8 @@ def register_callbacks(app):
                 blank_children,
                 dmc.Center("No location selected"),
                 "",
+                no_update,
+                no_update,
             )
 
         pcode = selected_data["pcode"]
@@ -218,7 +225,14 @@ def register_callbacks(app):
         name, exposed_summary = get_summary(
             df_processed, df_adm, adm_level, quantile
         )
-        return exposure_chart, rp_chart, name, exposed_summary
+        return (
+            exposure_chart,
+            rp_chart,
+            name,
+            exposed_summary,
+            f"{exposed_plot_title}: {name}",
+            f"{rp_plot_title}: {name}",
+        )
 
     @app.callback(
         Output("hover-place-name", "children"), Input("geojson", "hoverData")
