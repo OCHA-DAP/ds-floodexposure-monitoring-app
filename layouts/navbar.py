@@ -1,7 +1,7 @@
 import dash_bootstrap_components as dbc
 from dash import html
 
-from constants import NAVBAR_HEIGHT
+from constants import CHD_GREEN, NAVBAR_HEIGHT
 
 
 def navbar():
@@ -12,15 +12,9 @@ def navbar():
                     dbc.Row(
                         [
                             dbc.Col(
-                                html.Img(
-                                    src="assets/centre_banner_greenbg.png",
-                                    height=40,
-                                ),
-                            ),
-                            dbc.Col(
                                 dbc.NavbarBrand(
-                                    "Risk Monitoring Dashboard".upper(),
-                                    className=["ms-2", "header"],
+                                    "Risk Monitoring Dashboard",
+                                    className=["ms-2", "header", "bold"],
                                 )
                             ),
                         ],
@@ -30,7 +24,17 @@ def navbar():
                     href="https://centre.humdata.org/data-science/",
                     style={"textDecoration": "none"},
                 ),
-                dbc.NavbarToggler(id="navbar-toggler", n_clicks=0),
+                dbc.Col(
+                    html.Img(
+                        src="assets/centreforHumdata_white_TransparentBG.png",
+                        height=40,
+                        style={
+                            "position": "absolute",
+                            "right": "15px",
+                            "top": "10px",
+                        },
+                    ),
+                ),
             ],
             fluid=True,
         ),
@@ -39,7 +43,7 @@ def navbar():
             "margin": "0px",
             "padding": "10px",
         },
-        color="primary",
+        color=CHD_GREEN,
         dark=True,
     )
 
@@ -48,10 +52,10 @@ def module_bar():
     return html.Div(
         "Flood Exposure Module",
         style={
-            "backgroundColor": "#007ce1",
+            "backgroundColor": "#353535",
             "color": "white",
             "padding": "6px",
-            "paddingLeft": "75px",
+            "paddingLeft": "30px",
             "fontSize": "20px",
         },
         className="header",
