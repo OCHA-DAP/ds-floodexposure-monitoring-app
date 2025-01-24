@@ -91,7 +91,7 @@ def register_callbacks(app):
         for feature, quantile in zip(data["features"], df_joined["quantile"]):
             feature["properties"]["quantile"] = quantile
 
-        colorscale = ["#0063b3", "#66b0ec", "#cccccc", "#fce0de", "#f2645a"]
+        colorscale = ["#fafafa", "#e0e0e0", "#b8b8b8", "#f7a29c", "#da5a51"]
         colorbar = dlx.categorical_colorbar(
             categories=[
                 "Well below<br>normal",
@@ -106,7 +106,7 @@ def register_callbacks(app):
             position="bottomleft",
         )
         title = html.Div(
-            "Population exposed to flooding is...",
+            f"Exposed population on {df_quantile.valid_date.max():%b %d} is...",  # noqa
             style={
                 "position": "absolute",
                 "bottom": "60px",
@@ -118,7 +118,7 @@ def register_callbacks(app):
             },
         )
 
-        style = dict(weight=1, opacity=1, color="white", fillOpacity=0.5)
+        style = dict(weight=1, opacity=1, color="white", fillOpacity=0.75)
 
         geojson = dl.GeoJSON(
             data=data,
