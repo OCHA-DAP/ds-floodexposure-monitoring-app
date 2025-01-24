@@ -70,6 +70,11 @@ REGIONS = [
 ]
 
 CHD_GREEN = "#1bb580"
+CHD_BLUE = "#007ce0"
+CHD_LIGHTBLUE = "#66b0ec"
+CHD_GREY = "#888888"
+CHD_MINT = "#1ebfb3"
+CHD_RED = "#f2645a"
 
 NAVBAR_HEIGHT = 60
 

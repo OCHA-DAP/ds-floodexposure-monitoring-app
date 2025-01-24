@@ -1,6 +1,6 @@
 import plotly.graph_objects as go
 
-from constants import CHD_GREEN, CUR_YEAR, ROLLING_WINDOW
+from constants import CHD_BLUE, CHD_GREY, CHD_RED, CUR_YEAR, ROLLING_WINDOW
 
 
 def create_timeseries_plot(df_seasonal, df_processed, peak_years):
@@ -23,11 +23,11 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years):
     # Add yearly traces
     for year in df_processed["date"].dt.year.unique():
         color = (
-            CHD_GREEN
+            CHD_BLUE
             if year == CUR_YEAR
-            else "red"
+            else CHD_RED
             if year in peak_years
-            else "grey"
+            else CHD_BLUE
         )
         linewidth = 3 if year == CUR_YEAR else 0.2
 
@@ -52,27 +52,52 @@ def create_timeseries_plot(df_seasonal, df_processed, peak_years):
     fig.add_vline(
         x=date_1900,
         line_dash="dash",
-        line_color="black",
+        line_color=CHD_GREY,
         line_width=1,
         opacity=1,
         annotation_text=f"  Data updated<br>{date_formatted}",
         annotation_position="top right",
-        annotation_font_color="black",
+        annotation_font_color=CHD_GREY,
     )
 
     fig.update_layout(
         template="simple_white",
-        xaxis=dict(tickformat="%b %d", dtick="M1"),
+        xaxis=dict(
+            tickformat="%b",
+            dtick="M1",
+            showticklabels=True,
+            ticklen=0,
+            title=None,
+            color=CHD_GREY,
+        ),
+        yaxis=dict(ticklen=0),
         legend_title="Year<br><sup>(click to toggle)</sup>",
-        height=340,
+        height=240,
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
-        font=dict(family="Arial, sans-serif"),
+        font=dict(
+            family="Source Sans Pro, sans-serif",
+            color="#888888",  # Colors all text
+        ),
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=11,
+            font_family="Source Sans Pro, sans-serif",
+        ),
     )
+
+    y_max = df_processed[f"roll{ROLLING_WINDOW}"].max()
+    tick_interval = round(y_max / 4, -3)
+
     fig.update_yaxes(
-        rangemode="tozero", title="Population exposed to flooding"
+        title="Population",
+        color=CHD_GREY,
+        dtick=tick_interval,
+        showgrid=True,
+        gridwidth=1,
+        gridcolor="#eeeeee",
+        zeroline=False,
     )
-    # set x max to year 1900
-    fig.update_xaxes(title="Date", range=["1900-01-01", "1900-12-31"])
+    fig.update_xaxes(range=["1900-01-01", "1900-12-31"])
 
     return fig
 
@@ -88,7 +113,7 @@ def create_return_period_plot(df_peaks, rp=3):
             y=df_peaks[f"roll{ROLLING_WINDOW}"],
             name="all years",
             mode="lines",
-            line_color="black",
+            line_color="#353535",
         )
     )
 
@@ -112,8 +137,8 @@ def create_return_period_plot(df_peaks, rp=3):
             mode="markers+text",
             text=CUR_YEAR,
             textposition=position,
-            marker_color=CHD_GREEN,
-            textfont=dict(size=15, color=CHD_GREEN),
+            marker_color=CHD_BLUE,
+            textfont=dict(size=15, color=CHD_BLUE),
             marker_size=10,
         )
     )
@@ -130,21 +155,38 @@ def create_return_period_plot(df_peaks, rp=3):
             name="≥3-yr RP years",
             textposition="top left",
             mode="markers+text",
-            marker_color="red",
-            textfont=dict(size=12, color="red"),
+            marker_color=CHD_RED,
+            textfont=dict(size=12, color=CHD_RED),
             marker_size=5,
         )
     )
 
+    y_max = df_peaks[f"roll{ROLLING_WINDOW}"].max()
+    tick_interval = round(y_max / 4, -3)
+
     fig.update_layout(
         template="simple_white",
-        xaxis=dict(dtick=1),
-        height=340,
+        xaxis=dict(dtick=5, ticklen=0, color=CHD_GREY),
+        yaxis=dict(
+            ticklen=0,
+            dtick=tick_interval,
+            color=CHD_GREY,
+            showgrid=True,
+            gridwidth=1,
+            gridcolor="#eeeeee",
+            zeroline=False,
+        ),
+        height=240,
         showlegend=False,
         margin={"t": 10, "l": 0, "r": 0, "b": 0},
         font=dict(family="Arial, sans-serif"),
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=11,
+            font_family="Source Sans Pro, sans-serif",
+        ),
     )
-    fig.update_yaxes(title="Maximum daily flood exposure during year")
+    fig.update_yaxes(title="Maximum population exposed")
     fig.update_xaxes(title="Return period (years)")
 
     return fig
