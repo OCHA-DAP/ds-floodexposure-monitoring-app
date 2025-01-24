@@ -86,7 +86,7 @@ def process_flood_data(df_exposure):
     df_seasonal = (
         df_exposure[df_exposure["date"].dt.year < CUR_YEAR]
         .groupby("dayofyear")[val_col]
-        .mean()
+        .median()
         .reset_index()
     )
     df_seasonal["eff_date"] = pd.to_datetime(
@@ -119,17 +119,17 @@ def calculate_return_periods(df_peaks, rp: int = 3):
     return df_peaks.sort_values(by="rp"), peak_years
 
 
-def get_current_terciles(adm_level):
-    tercile_table = (
-        "current_tercile_regions"
+def get_current_quantiles(adm_level):
+    quantile_table = (
+        "current_quantile_regions"
         if adm_level == "region"
-        else "current_tercile"
+        else "current_quantile"
     )
 
     engine = get_engine()
     query = text(
         f"""
-        select * from app.{tercile_table}
+        select * from app.{quantile_table}
         where adm_level=:adm_level
         """
     )
@@ -138,7 +138,7 @@ def get_current_terciles(adm_level):
     return df
 
 
-def get_summary(df_exposure, df_adm, adm_level, tercile):
+def get_summary(df_exposure, df_adm, adm_level, quantile):
     name = df_adm.iloc[0][f"adm{adm_level}_name"]
     max_date = f"{df_exposure['date'].max():%Y-%m-%d}"  # noqa
     val_col = f"roll{ROLLING_WINDOW}"
@@ -153,13 +153,19 @@ def get_summary(df_exposure, df_adm, adm_level, tercile):
     )
     people_exposed_formatted = "{:,}".format(people_exposed)
 
-    tercile_label = {-1: "below normal", 0: "normal", 1: "above normal"}
+    quantile_label = {
+        -2: "very below normal",
+        -1: "below normal",
+        0: "normal",
+        1: "above normal",
+        2: "very above normal",
+    }
 
     summary_text = dcc.Markdown(
         f"""
         **{people_exposed_formatted}** people exposed to flooding as of **{max_date}**.
 
-        This is **{tercile_label[tercile]}** for this day of the year.
+        This is **{quantile_label[quantile]}** for this day of the year.
         """
     )
 

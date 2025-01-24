@@ -20,12 +20,16 @@ window.dashExtensions = Object.assign({}, window.dashExtensions, {
             }
 
             // Set color based on value
-            if (value === -1) {
+            if (value === -2) {
                 featureStyle.fillColor = colorscale[0];
-            } else if (value === 0) {
+            } else if (value === -1) {
                 featureStyle.fillColor = colorscale[1];
-            } else if (value === 1) {
+            } else if (value === 0) {
                 featureStyle.fillColor = colorscale[2];
+            } else if (value === 1) {
+                featureStyle.fillColor = colorscale[3];
+            } else if (value === 2) {
+                featureStyle.fillColor = colorscale[4];
             }
 
             return featureStyle;

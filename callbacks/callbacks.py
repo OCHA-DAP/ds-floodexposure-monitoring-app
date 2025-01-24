@@ -12,7 +12,7 @@ from utils.chart_utils import create_return_period_plot, create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
     fetch_flood_data,
-    get_current_terciles,
+    get_current_quantiles,
     get_summary,
     process_flood_data,
 )
@@ -35,12 +35,16 @@ style_handle = assign(
         }
 
         // Set color based on value
-        if (value === -1) {
+        if (value === -2) {
             featureStyle.fillColor = colorscale[0];
-        } else if (value === 0) {
+        } else if (value === -1) {
             featureStyle.fillColor = colorscale[1];
-        } else if (value === 1) {
+        } else if (value === 0) {
             featureStyle.fillColor = colorscale[2];
+        } else if (value === 1) {
+            featureStyle.fillColor = colorscale[3];
+        } else if (value === 2) {
+            featureStyle.fillColor = colorscale[4];
         }
 
         return featureStyle;
@@ -66,8 +70,6 @@ def register_callbacks(app):
             return no_update
 
         name = feature["properties"]["pcode"]
-        tercile = feature["properties"]["tercile"]
-        print(tercile)
         if hideout["selected"] == name:
             hideout["selected"] = ""
         else:
@@ -79,21 +81,27 @@ def register_callbacks(app):
         with open(f"assets/geo/adm{adm_level}.json", "r") as file:
             data = json.load(file)
 
-        df_tercile = get_current_terciles(adm_level)
+        df_quantile = get_current_quantiles(adm_level)
         features_df = pd.DataFrame(
             [feature["properties"] for feature in data["features"]]
         )
         df_joined = features_df.merge(
-            df_tercile[["pcode", "tercile"]], on="pcode", how="left"
+            df_quantile[["pcode", "quantile"]], on="pcode", how="left"
         )
-        for feature, tercile in zip(data["features"], df_joined["tercile"]):
-            feature["properties"]["tercile"] = tercile
+        for feature, quantile in zip(data["features"], df_joined["quantile"]):
+            feature["properties"]["quantile"] = quantile
 
-        colorscale = ["#6baed6", "#dbdbdb", "#fcae91"]
+        colorscale = ["#08519c", "#6baed6", "#dbdbdb", "#ffded2", "#ff8b61"]
         colorbar = dlx.categorical_colorbar(
-            categories=["Below normal", "Normal", "Above normal"],
+            categories=[
+                "Very below normal",
+                "Below normal",
+                "Normal",
+                "Above normal",
+                "Very above normal",
+            ],
             colorscale=colorscale,
-            width=300,
+            width=500,
             height=15,
             position="bottomleft",
         )
@@ -119,7 +127,7 @@ def register_callbacks(app):
             hideout=dict(
                 colorscale=colorscale,
                 style=style,
-                colorProp="tercile",
+                colorProp="quantile",
                 selected="",
             ),
             hoverStyle=arrow_function(
@@ -169,7 +177,7 @@ def register_callbacks(app):
             )
 
         pcode = selected_data["pcode"]
-        tercile = selected_data["tercile"]
+        quantile = selected_data["quantile"]
 
         df_exposure, df_adm = fetch_flood_data(pcode, adm_level)
 
@@ -203,7 +211,7 @@ def register_callbacks(app):
         )
         rp_chart = dcc.Graph(config={"displayModeBar": False}, figure=fig_rp)
         name, exposed_summary = get_summary(
-            df_processed, df_adm, adm_level, tercile
+            df_processed, df_adm, adm_level, quantile
         )
         return exposure_chart, rp_chart, name, exposed_summary
 
