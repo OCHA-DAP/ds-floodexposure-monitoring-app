@@ -91,25 +91,25 @@ def register_callbacks(app):
         for feature, quantile in zip(data["features"], df_joined["quantile"]):
             feature["properties"]["quantile"] = quantile
 
-        colorscale = ["#fafafa", "#e0e0e0", "#b8b8b8", "#f7a29c", "#da5a51"]
+        colorscale = ["#08519c", "#6baed6", "#dbdbdb", "#ffded2", "#ff8b61"]
         colorbar = dlx.categorical_colorbar(
             categories=[
-                "Well below<br>normal",
+                "Very below normal",
                 "Below normal",
                 "Normal",
                 "Above normal",
-                "Well above<br>normal",
+                "Very above normal",
             ],
             colorscale=colorscale,
-            width=300,
+            width=500,
             height=15,
             position="bottomleft",
         )
         title = html.Div(
-            f"Exposed population on {df_quantile.valid_date.max():%b %d} is...",  # noqa
+            "Population exposed to flooding is...",
             style={
                 "position": "absolute",
-                "bottom": "60px",
+                "bottom": "40px",
                 "left": "10px",
                 "zIndex": 1000,
                 "fontSize": "12px",
@@ -118,7 +118,7 @@ def register_callbacks(app):
             },
         )
 
-        style = dict(weight=1, opacity=1, color="white", fillOpacity=0.75)
+        style = dict(weight=1, opacity=1, color="white", fillOpacity=0.5)
 
         geojson = dl.GeoJSON(
             data=data,
@@ -138,7 +138,7 @@ def register_callbacks(app):
         adm0 = dl.GeoJSON(
             url="assets/geo/adm0_outline.json",
             id="adm0-geojson",
-            style={"color": "#353535", "weight": 1.5},
+            style={"color": "black", "weight": 3},
         )
 
         return [
@@ -159,33 +159,21 @@ def register_callbacks(app):
         Output("rp-chart", "children"),
         Output("place-name", "children"),
         Output("num-exposed", "children"),
-        Output("exposure-chart-title", "children"),
-        Output("rp-chart-title", "children"),
         Input("selected-data", "data"),
         State("adm-level", "value"),
         prevent_initial_call=False,
     )
     def update_plot(selected_data, adm_level):
-        exposed_plot_title = "Daily population exposed to flooding"
-        rp_plot_title = "Return period of annual maximum flood exposure"
-
         if not selected_data:
             blank_children = [
                 dmc.Space(h=100),
-                dmc.Center(
-                    html.Div(
-                        "Select a location from the map above",
-                        style={"color": "#888888"},
-                    )
-                ),
+                dmc.Center(html.Div("Select a location from the map above")),
             ]
             return (
                 blank_children,
                 blank_children,
                 dmc.Center("No location selected"),
                 "",
-                no_update,
-                no_update,
             )
 
         pcode = selected_data["pcode"]
@@ -225,14 +213,7 @@ def register_callbacks(app):
         name, exposed_summary = get_summary(
             df_processed, df_adm, adm_level, quantile
         )
-        return (
-            exposure_chart,
-            rp_chart,
-            name,
-            exposed_summary,
-            f"{exposed_plot_title}: {name}",
-            f"{rp_plot_title}: {name}",
-        )
+        return exposure_chart, rp_chart, name, exposed_summary
 
     @app.callback(
         Output("hover-place-name", "children"), Input("geojson", "hoverData")

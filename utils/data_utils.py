@@ -140,8 +140,7 @@ def get_current_quantiles(adm_level):
 
 def get_summary(df_exposure, df_adm, adm_level, quantile):
     name = df_adm.iloc[0][f"adm{adm_level}_name"]
-    adm0_name = df_adm.iloc[0]["adm0_name"]
-    max_date = f"{df_exposure['date'].max():%b %d, %Y}"  # noqa
+    max_date = f"{df_exposure['date'].max():%Y-%m-%d}"  # noqa
     val_col = f"roll{ROLLING_WINDOW}"
 
     df_ = df_exposure[df_exposure["date"] == max_date]
@@ -155,11 +154,11 @@ def get_summary(df_exposure, df_adm, adm_level, quantile):
     people_exposed_formatted = "{:,}".format(people_exposed)
 
     quantile_label = {
-        -2: "well below normal",
+        -2: "very below normal",
         -1: "below normal",
         0: "normal",
         1: "above normal",
-        2: "well above normal",
+        2: "very above normal",
     }
 
     summary_text = dcc.Markdown(
@@ -169,6 +168,5 @@ def get_summary(df_exposure, df_adm, adm_level, quantile):
         This is **{quantile_label[quantile]}** for this day of the year.
         """
     )
-    print(adm_level)
-    name = name if adm_level == "0" else f"{name}, {adm0_name}"
+
     return (name, summary_text)
