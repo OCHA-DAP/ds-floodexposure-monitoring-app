@@ -1,7 +1,7 @@
 import geopandas as gpd
 import pandas as pd
 
-from constants import ADM_LEVELS, ISO3S, REGIONS
+from constants import ADM_LEVELS, ISO3S, REGIONS, STAGE
 from utils import codab_utils, data_utils
 
 
@@ -54,7 +54,7 @@ def load_geo_data(save_to_database=True):
         df_out.to_sql(
             "adm",
             schema="app",
-            con=data_utils.get_engine(stage="dev"),
+            con=data_utils.get_engine(STAGE),
             if_exists="replace",
             index=False,
         )

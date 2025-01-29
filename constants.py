@@ -92,3 +92,5 @@ URL = "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
 URL_LABELS = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
 
 CUR_YEAR = datetime.today().year
+
+STAGE = os.getenv("STAGE")
