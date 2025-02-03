@@ -12,6 +12,7 @@ from constants import (
     AZURE_DB_UID,
     CUR_YEAR,
     ROLLING_WINDOW,
+    STAGE,
 )
 from utils.log_utils import get_logger
 
@@ -19,6 +20,7 @@ logger = get_logger("data")
 
 
 def get_engine(stage: Literal["dev", "prod"] = "dev"):
+    logger.debug(f"Connecting to {stage} database")
     if stage == "dev":
         url = AZURE_DB_BASE_URL.format(
             uid=AZURE_DB_UID, pw=AZURE_DB_PW_DEV, db_name="chd-rasterstats-dev"
@@ -53,7 +55,7 @@ def fetch_flood_data(pcode, adm_level):
     query_adm = text("select * from app.adm")
     logger.info(f"Getting flood exposure data for {pcode}...")
     start = time.time()
-    engine = get_engine()
+    engine = get_engine(STAGE)
     with engine.connect() as con:
         df_exposure = pd.read_sql_query(
             query_exposure,
@@ -126,7 +128,7 @@ def get_current_quantiles(adm_level):
         else "current_quantile"
     )
 
-    engine = get_engine()
+    engine = get_engine(STAGE)
     query = text(
         f"""
         select * from app.{quantile_table}
@@ -169,6 +171,5 @@ def get_summary(df_exposure, df_adm, adm_level, quantile):
         This is **{quantile_label[quantile]}** for this day of the year.
         """
     )
-    print(adm_level)
     name = name if adm_level == "0" else f"{name}, {adm0_name}"
     return (name, summary_text)
