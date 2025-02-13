@@ -167,7 +167,9 @@ def register_callbacks(app):
     )
     def update_plot(selected_data, adm_level):
         exposed_plot_title = "Daily population exposed to flooding"
-        rp_plot_title = "Return period of annual maximum flood exposure"
+        rp_plot_title = (
+            "Return period of annual maximum flood exposure to date"
+        )
 
         if not selected_data:
             blank_children = [

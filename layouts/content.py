@@ -91,17 +91,17 @@ def info_container():
                                 """
                     Daily flood exposure rasters are calculated by multiplying the gridded population (UN adjusted, 1km resolution, 2020)
                     by the 7-day rolling average of the flood extent (SFED_AREA, at a ≈10km resolution), masking out areas where the flood
-                    extent is  less than 5% to reduce noise. The daily exposure rasters are then  aggregated to the admin2 level.
+                    extent is  less than 5% to reduce noise. The daily exposure rasters are then aggregated to each admin level (0-2).
                     This is similar to the [method](https://docs.google.com/document/d/16-TrPdCF7dCx5thpdA7dXB8k1MUOJUovWaRVIjEJNUE/edit?tab=t.0#heading=h.rtvq16oq23gp)
-                    initially developed for the 2024 Somalia HNRP. Admin0 and admin1 exposure is calculated simply by summing the admin2 exposures.
+                    initially developed for the 2024 Somalia HNRP.
                     """  # noqa
                             ),
                             dcc.Markdown(
                                 """
                     Return  period is calculated empirically, by ranking each year's flood  exposure. The maximum flood exposure to date
-                    for all admin levels is  taken taken as the maximum instantaneous flood exposure for any day in  the year
-                    (up to the current day of the year). Note that this does not  take into account flooding in one part of the
-                    area on one day and  another part on another day. In this case, the yearly maximum would be  the maximum of these values, not the sum.
+                    for all admin levels is taken taken as the maximum instantaneous (per pixel) flood exposure for any day in the year
+                    (up to the current day of the year). Note that this does not take into account flooding in one part of the
+                    area on one day and another part on another day. In this case, the yearly maximum would be  the maximum of these values, not the sum.
                     """  # noqa
                             ),
                         ],
@@ -221,7 +221,7 @@ def chart_container():
         dbc.Col(
             width=12,
             children=chart_card(
-                "Return period of annual maximum flood exposure",
+                "Return period of annual maximum flood exposure to date",
                 chart_id="rp-chart",
             ),
             style={"height": charts_height, "marginBottom": "15px"},
