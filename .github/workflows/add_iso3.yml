@@ -120,7 +120,7 @@ jobs:
 
             Please review the changes carefully before merging." \
             --base main \
-            --label "geodata-update,${{ github.event.inputs.stage }}"
+            --label "geodata-update"
 
       # If no changes were made, output a message
       - name: No changes required
