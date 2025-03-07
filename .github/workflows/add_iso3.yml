@@ -87,7 +87,7 @@ jobs:
       - name: Commit changes
         if: steps.git-status.outputs.changes == 'true'
         run: |
-          git add pipelines/config.yml assets/
+          git add pipelines/iso3.txt assets/
           git commit -m "Add ISO3 ${{ github.event.inputs.iso3 }} and update geodata"
 
       # Push changes
