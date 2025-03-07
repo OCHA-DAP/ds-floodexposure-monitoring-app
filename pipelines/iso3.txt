@@ -1,1 +1,1 @@
-"ner", "nga", "cmr", "tcd", "bfa", "eth", "ssd", "som", "mli", "cod"
+"ner", "nga", "cmr", "tcd", "bfa", "eth", "ssd", "som", "mli", "cod", "moz"
