@@ -1,4 +1,4 @@
-azure-storage-blob==12.20.0
+azure-storage-blob==12.22.0
 black==24.10.0
 dash-bootstrap-components==1.6.0
 dash-extensions==1.0.18
@@ -12,7 +12,7 @@ isort==5.13.2
 pip-chill==1.0.3
 pre-commit==4.0.1
 psycopg2-binary==2.9.10
-pyarrow==16.1.0
+pyarrow==19.0.0
 python-dotenv==1.0.1
 sqlalchemy==2.0.36
 tomli==2.0.1
