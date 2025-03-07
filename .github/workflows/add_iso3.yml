@@ -77,7 +77,20 @@ jobs:
             DSCI_AZ_DB_PROD_UID_WRITE: ${{ secrets.DSCI_AZ_DB_PROD_UID_WRITE }}
             DSCI_AZ_DB_DEV_UID_WRITE: ${{ secrets.DSCI_AZ_DB_DEV_UID_WRITE }}
             STAGE: ${{ github.event.inputs.stage }}
-        run: python pipelines/download_geodata.py
+
+
+        run: |
+            # Check if secrets are defined without exposing them
+            if [ -n "$DSCI_AZ_BLOB_DEV_SAS" ]; then echo "DSCI_AZ_BLOB_DEV_SAS is set"; else echo "DSCI_AZ_BLOB_DEV_SAS is NOT set"; fi
+            if [ -n "$DSCI_AZ_BLOB_PROD_SAS" ]; then echo "DSCI_AZ_BLOB_PROD_SAS is set"; else echo "DSCI_AZ_BLOB_PROD_SAS is NOT set"; fi
+            if [ -n "$DSCI_AZ_DB_DEV_PW_WRITE" ]; then echo "DSCI_AZ_DB_DEV_PW_WRITE is set"; else echo "DSCI_AZ_DB_DEV_PW_WRITE is NOT set"; fi
+            if [ -n "$DSCI_AZ_DB_PROD_PW_WRITE" ]; then echo "DSCI_AZ_DB_PROD_PW_WRITE is set"; else echo "DSCI_AZ_DB_PROD_PW_WRITE is NOT set"; fi
+            if [ -n "$DSCI_AZ_DB_PROD_UID_WRITE" ]; then echo "DSCI_AZ_DB_PROD_UID_WRITE is set"; else echo "DSCI_AZ_DB_PROD_UID_WRITE is NOT set"; fi
+            if [ -n "$DSCI_AZ_DB_DEV_UID_WRITE" ]; then echo "DSCI_AZ_DB_DEV_UID_WRITE is set"; else echo "DSCI_AZ_DB_DEV_UID_WRITE is NOT set"; fi
+            echo "Stage: $STAGE"
+
+            # Run the script
+            python pipelines/download_geodata.py
 
       # Check if there are any changes
       - name: Check for changes
