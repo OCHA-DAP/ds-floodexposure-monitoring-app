@@ -61,6 +61,8 @@ jobs:
             DSCI_AZ_DB_PROD_PW_WRITE: ${{ secrets.DSCI_AZ_DB_PROD_PW_WRITE }}
             DSCI_AZ_DB_PROD_UID_WRITE: ${{ secrets.DSCI_AZ_DB_PROD_UID_WRITE }}
             DSCI_AZ_DB_DEV_UID_WRITE: ${{ secrets.DSCI_AZ_DB_DEV_UID_WRITE }}
+            DSCI_AZ_DB_DEV_HOST: "chd-rasterstats-dev.postgres.database.azure.com"
+            DSCI_AZ_DB_PROD_HOST: "chd-rasterstats-prod.postgres.database.azure.com"
             STAGE: ${{ github.event.inputs.stage }}
         run: python pipelines/download_geodata.py
 
