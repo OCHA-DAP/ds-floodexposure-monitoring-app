@@ -46,25 +46,10 @@ jobs:
       - name: Create new branch
         run: git checkout -b ${{ steps.branch-name.outputs.branch }}
 
-      # Update the config.yml file to add the new ISO3 code
-      - name: Update config.yml with new ISO3 code
+      # Update the iso3.txt file to add the new ISO3 code
+      - name: Update iso3.txt with new ISO3 code
         id: update-config
-        run: |
-          # Convert input to lowercase to ensure consistency
-          ISO3=$(echo "${{ github.event.inputs.iso3 }}" | tr '[:upper:]' '[:lower:]')
-
-          # Check if ISO3 already exists in config
-          if grep -q "  - \"$ISO3\"" pipelines/config.yml; then
-            echo "ISO3 code $ISO3 already exists in config.yml"
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            # Update the YAML file to add the ISO3 code
-            # Find the line after the last ISO3 entry and add the new one
-            LAST_ISO3_LINE=$(grep -n "  - \"" pipelines/config.yml | tail -1 | cut -d: -f1)
-            sed -i "$LAST_ISO3_LINE a\\  - \"$ISO3\"" pipelines/config.yml
-            echo "ISO3 code $ISO3 added to config.yml"
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
+        run: python pipelines/update_iso3.py
 
       # Run the geodata download script
       # Will write to the database and read from Azure blob
@@ -72,27 +57,12 @@ jobs:
         env:
             DSCI_AZ_BLOB_DEV_SAS: ${{ secrets.DSCI_AZ_BLOB_DEV_SAS }}
             DSCI_AZ_BLOB_PROD_SAS: ${{ secrets.DSCI_AZ_BLOB_PROD_SAS }}
-            DSCI_AZ_BLOB_DEV_SAS_WRITE: ${{ secrets.DSCI_AZ_BLOB_DEV_SAS_WRITE }}
-            DSCI_AZ_BLOB_PROD_SAS_WRITE: ${{ secrets.DSCI_AZ_BLOB_PROD_SAS_WRITE }}
             DSCI_AZ_DB_DEV_PW_WRITE: ${{ secrets.DSCI_AZ_DB_DEV_PW_WRITE }}
             DSCI_AZ_DB_PROD_PW_WRITE: ${{ secrets.DSCI_AZ_DB_PROD_PW_WRITE }}
             DSCI_AZ_DB_PROD_UID_WRITE: ${{ secrets.DSCI_AZ_DB_PROD_UID_WRITE }}
             DSCI_AZ_DB_DEV_UID_WRITE: ${{ secrets.DSCI_AZ_DB_DEV_UID_WRITE }}
             STAGE: ${{ github.event.inputs.stage }}
-
-
-        run: |
-            # Check if secrets are defined without exposing them
-            if [ -n "$DSCI_AZ_BLOB_DEV_SAS" ]; then echo "DSCI_AZ_BLOB_DEV_SAS is set"; else echo "DSCI_AZ_BLOB_DEV_SAS is NOT set"; fi
-            if [ -n "$DSCI_AZ_BLOB_PROD_SAS" ]; then echo "DSCI_AZ_BLOB_PROD_SAS is set"; else echo "DSCI_AZ_BLOB_PROD_SAS is NOT set"; fi
-            if [ -n "$DSCI_AZ_DB_DEV_PW_WRITE" ]; then echo "DSCI_AZ_DB_DEV_PW_WRITE is set"; else echo "DSCI_AZ_DB_DEV_PW_WRITE is NOT set"; fi
-            if [ -n "$DSCI_AZ_DB_PROD_PW_WRITE" ]; then echo "DSCI_AZ_DB_PROD_PW_WRITE is set"; else echo "DSCI_AZ_DB_PROD_PW_WRITE is NOT set"; fi
-            if [ -n "$DSCI_AZ_DB_PROD_UID_WRITE" ]; then echo "DSCI_AZ_DB_PROD_UID_WRITE is set"; else echo "DSCI_AZ_DB_PROD_UID_WRITE is NOT set"; fi
-            if [ -n "$DSCI_AZ_DB_DEV_UID_WRITE" ]; then echo "DSCI_AZ_DB_DEV_UID_WRITE is set"; else echo "DSCI_AZ_DB_DEV_UID_WRITE is NOT set"; fi
-            echo "Stage: $STAGE"
-
-            # Run the script
-            python pipelines/download_geodata.py
+        run: python pipelines/download_geodata.py
 
       # Check if there are any changes
       - name: Check for changes

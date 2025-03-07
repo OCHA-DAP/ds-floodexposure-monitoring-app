@@ -1,12 +1,45 @@
 import os
+import sys
 
 import geopandas as gpd
 import ocha_stratus as ocha
 import pandas as pd
-import yaml
 
 STAGE = os.getenv("STAGE")
 PROJECT_PREFIX = "ds-floodexposure-monitoring"
+ADM_LEVELS = [0, 1, 2]
+
+# specific pcodes for building regions
+NORDKIVU1 = "CD61"
+SUDKIVU1 = "CD62"
+TANGANYIKA1 = "CD74"
+BASUELE1 = "CD52"
+HAUTUELE1 = "CD53"
+TSHOPO1 = "CD51"
+
+REGIONS = [
+    {
+        "adm_level": 1,
+        "iso3": "cod",
+        "region_number": 1,
+        "region_name": "Zone 1",
+        "pcodes": [BASUELE1, HAUTUELE1, TSHOPO1],
+    },
+    {
+        "adm_level": 1,
+        "iso3": "cod",
+        "region_number": 2,
+        "region_name": "Zone 2",
+        "pcodes": [NORDKIVU1, SUDKIVU1],
+    },
+    {
+        "adm_level": 1,
+        "iso3": "cod",
+        "region_number": 3,
+        "region_name": "Zone 3",
+        "pcodes": [TANGANYIKA1],
+    },
+]
 
 
 def get_blob_name(iso3: str):
@@ -56,8 +89,6 @@ def load_geo_data(iso3s, regions, save_to_database=True):
     adm.drop(columns=["geometry"], inplace=True)
     adm.columns = adm.columns.str.lower()
 
-    print(iso3s)
-    print(regions)
     region_dicts = []
     for region in regions:
         adm_names = adm[
@@ -83,33 +114,19 @@ def load_geo_data(iso3s, regions, save_to_database=True):
 
 
 if __name__ == "__main__":
-    # Check the env vars are defined properly
-    if STAGE == "prod":
-        blob_sas = os.environ.get("DSCI_AZ_BLOB_PROD_SAS")
-        db_password = os.environ.get("DSCI_AZ_DB_PROD_PW_WRITE")
-        db_username = os.environ.get("DSCI_AZ_DB_PROD_UID_WRITE")
-    else:
-        blob_sas = os.environ.get("DSCI_AZ_BLOB_DEV_SAS")
-        db_password = os.environ.get("DSCI_AZ_DB_DEV_PW_WRITE")
-        db_username = os.environ.get("DSCI_AZ_DB_DEV_UID_WRITE")
+    file_path = "pipelines/iso3.txt"
+    try:
+        with open(file_path, "r") as f:
+            content = f.read().strip()
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        sys.exit(1)
 
-    # Check if we have the required credentials
-    if not blob_sas or not db_password or not db_username:
-        raise ValueError(
-            f"Missing credentials for {STAGE} environment. Please check GitHub secrets."
-        )
-
-    with open("pipelines/config.yml", "r") as f:
-        config = yaml.safe_load(f)
-
-    iso3s = config["iso3s"]
-    regions = config["regions"]
-    adm_levels = config["adm_levels"]
+    iso3s = [code.strip(" \"'") for code in content.split(",")]
+    regions = REGIONS
+    adm_levels = ADM_LEVELS
 
     load_geo_data(iso3s, regions)
-
-    print(iso3s)
-    print(regions)
 
     region_gdfs = []
     for adm_level in adm_levels:
