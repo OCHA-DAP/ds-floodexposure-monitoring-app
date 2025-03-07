@@ -37,10 +37,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      # Create a unique branch name using the ISO3 code
+      # Create a unique branch name using the ISO3 code and stage
       - name: Create branch name
         id: branch-name
-        run: echo "branch=add-${{ github.event.inputs.iso3 }}" >> $GITHUB_OUTPUT
+        run: echo "branch=add-${{ github.event.inputs.iso3 }}-${{ github.event.inputs.stage }}" >> $GITHUB_OUTPUT
 
       # Create a new branch
       - name: Create new branch
@@ -72,8 +72,11 @@ jobs:
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
             echo "changes=true" >> $GITHUB_OUTPUT
+            echo "Files changed:"
+            git status --porcelain
           else
             echo "changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
           fi
 
       # Configure Git
@@ -83,37 +86,41 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      # Commit changes
+      # Commit changes - Using git status to determine what to add
       - name: Commit changes
         if: steps.git-status.outputs.changes == 'true'
         run: |
-          git add pipelines/iso3.txt assets/
-          git commit -m "Add ISO3 ${{ github.event.inputs.iso3 }} and update geodata"
+          # First add any files within the pipelines directory that have changes
+          git ls-files --modified --others --exclude-standard pipelines/ | xargs -r git add
+
+          # Then add any files within the assets directory that have changes
+          git ls-files --modified --others --exclude-standard assets/ | xargs -r git add
+
+          # Commit the changes
+          git commit -m "Add ISO3 ${{ github.event.inputs.iso3 }} (${{ github.event.inputs.stage }}) and update geodata"
 
       # Push changes
       - name: Push changes
         if: steps.git-status.outputs.changes == 'true'
         run: git push origin ${{ steps.branch-name.outputs.branch }}
 
-      # Create pull request
+      # Create pull request using a separate action - not the peter-evans one which is having issues
       - name: Create Pull Request
         if: steps.git-status.outputs.changes == 'true'
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: "Add ISO3 ${{ github.event.inputs.iso3 }} and update geodata"
-          body: |
-            This PR adds the ISO3 code `${{ github.event.inputs.iso3 }}` to the configuration and updates the corresponding geodata assets.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --title "Add ISO3 ${{ github.event.inputs.iso3 }} and update geodata (${{ github.event.inputs.stage }})" \
+            --body "This PR adds the ISO3 code \`${{ github.event.inputs.iso3 }}\` to the configuration and updates the corresponding geodata assets for the \`${{ github.event.inputs.stage }}\` environment.
 
             ## Changes:
-            - Added ISO3 code `${{ github.event.inputs.iso3 }}` to config.yml
+            - Added ISO3 code \`${{ github.event.inputs.iso3 }}\` to iso3.txt
             - Updated geojson files in the assets directory
 
-            Please review the changes carefully before merging.
-          branch: ${{ steps.branch-name.outputs.branch }}
-          base: main
-          labels: geodata-update
-          draft: false
+            Please review the changes carefully before merging." \
+            --base main \
+            --label "geodata-update,${{ github.event.inputs.stage }}"
 
       # If no changes were made, output a message
       - name: No changes required
