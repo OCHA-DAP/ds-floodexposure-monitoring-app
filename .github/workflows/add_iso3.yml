@@ -1,0 +1,133 @@
+name: Add ISO3 and Update Geodata
+
+on:
+  workflow_dispatch:
+    inputs:
+      iso3:
+        description: 'ISO3 country code to add'
+        required: true
+        type: string
+      stage:
+        description: 'Environment stage'
+        required: true
+        type: choice
+        options:
+            - dev
+            - prod
+        default: 'dev'
+
+jobs:
+  update-iso3-and-geodata:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+            pip install -r requirements.txt; fi
+
+      # Create a unique branch name using the ISO3 code
+      - name: Create branch name
+        id: branch-name
+        run: echo "branch=add-${{ github.event.inputs.iso3 }}" >> $GITHUB_OUTPUT
+
+      # Create a new branch
+      - name: Create new branch
+        run: git checkout -b ${{ steps.branch-name.outputs.branch }}
+
+      # Update the config.yml file to add the new ISO3 code
+      - name: Update config.yml with new ISO3 code
+        id: update-config
+        run: |
+          # Convert input to lowercase to ensure consistency
+          ISO3=$(echo "${{ github.event.inputs.iso3 }}" | tr '[:upper:]' '[:lower:]')
+
+          # Check if ISO3 already exists in config
+          if grep -q "  - \"$ISO3\"" config.yml; then
+            echo "ISO3 code $ISO3 already exists in config.yml"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            # Update the YAML file to add the ISO3 code
+            # Find the line after the last ISO3 entry and add the new one
+            LAST_ISO3_LINE=$(grep -n "  - \"" config.yml | tail -1 | cut -d: -f1)
+            sed -i "$LAST_ISO3_LINE a\\  - \"$ISO3\"" config.yml
+            echo "ISO3 code $ISO3 added to config.yml"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Run the geodata download script
+      # Will write to the database and read from Azure blob
+      - name: Run geodata download script
+        env:
+            DSCI_AZ_BLOB_DEV_SAS: ${{ secrets.DSCI_AZ_BLOB_DEV_SAS }}
+            DSCI_AZ_DB_DEV_PW_WRITE: ${{ secrets.DSCI_AZ_DB_DEV_PW_WRITE }}
+            DSCI_AZ_DB_PROD_PW_WRITE: ${{ secrets.DSCI_AZ_DB_PROD_PW_WRITE }}
+            DSCI_AZ_DB_PROD_UID_WRITE: ${{ secrets.DSCI_AZ_DB_PROD_UID_WRITE }}
+            DSCI_AZ_DB_DEV_UID_WRITE: ${{ secrets.DSCI_AZ_DB_DEV_UID_WRITE }}
+            STAGE: ${{ github.event.inputs.stage }}
+        run: python pipelines/download_geodata.py
+
+      # Check if there are any changes
+      - name: Check for changes
+        id: git-status
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Configure Git
+      - name: Configure Git
+        if: steps.git-status.outputs.changes == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      # Commit changes
+      - name: Commit changes
+        if: steps.git-status.outputs.changes == 'true'
+        run: |
+          git add config.yml assets/
+          git commit -m "Add ISO3 ${{ github.event.inputs.iso3 }} and update geodata"
+
+      # Push changes
+      - name: Push changes
+        if: steps.git-status.outputs.changes == 'true'
+        run: git push origin ${{ steps.branch-name.outputs.branch }}
+
+      # Create pull request
+      - name: Create Pull Request
+        if: steps.git-status.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "Add ISO3 ${{ github.event.inputs.iso3 }} and update geodata"
+          body: |
+            This PR adds the ISO3 code `${{ github.event.inputs.iso3 }}` to the configuration and updates the corresponding geodata assets.
+
+            ## Changes:
+            - Added ISO3 code `${{ github.event.inputs.iso3 }}` to config.yml
+            - Updated geojson files in the assets directory
+
+            Please review the changes carefully before merging.
+          branch: ${{ steps.branch-name.outputs.branch }}
+          base: main
+          labels: geodata-update
+          draft: false
+
+      # If no changes were made, output a message
+      - name: No changes required
+        if: steps.git-status.outputs.changes == 'false'
+        run: echo "No changes were made to the repository. Either the ISO3 already existed or no geodata was updated."
