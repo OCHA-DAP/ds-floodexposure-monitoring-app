@@ -20,7 +20,7 @@ def load_codab_from_blob(iso3: str, admin_level: int = 0):
     gdf = ocha.load_shp_from_blob(
         blob_name=get_blob_name(iso3),
         shapefile=shapefile,
-        stage="dev",
+        stage=STAGE,
     )
     return gdf
 
