@@ -106,6 +106,9 @@ if __name__ == "__main__":
 
     load_geo_data(iso3s, regions)
 
+    print(iso3s)
+    print(regions)
+
     region_gdfs = []
     for adm_level in adm_levels:
         print(f"Processing geo data for admin {adm_level}...")
