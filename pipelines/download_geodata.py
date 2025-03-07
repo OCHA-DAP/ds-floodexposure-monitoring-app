@@ -1,9 +1,28 @@
+import os
+
 import geopandas as gpd
 import ocha_stratus as ocha
 import pandas as pd
+import yaml
 
-from constants import ADM_LEVELS, ISO3S, REGIONS, STAGE
-from utils import codab_utils
+STAGE = os.getenv("STAGE")
+PROJECT_PREFIX = "ds-floodexposure-monitoring"
+
+
+def get_blob_name(iso3: str):
+    iso3 = iso3.lower()
+    return f"{PROJECT_PREFIX}/raw/codab/{iso3}.shp.zip"
+
+
+def load_codab_from_blob(iso3: str, admin_level: int = 0):
+    iso3 = iso3.lower()
+    shapefile = f"{iso3}_adm{admin_level}.shp"
+    gdf = ocha.load_shp_from_blob(
+        blob_name=get_blob_name(iso3),
+        shapefile=shapefile,
+        stage="dev",
+    )
+    return gdf
 
 
 def clean_gdf(gdf):
@@ -21,12 +40,12 @@ def clean_gdf(gdf):
     return gdf
 
 
-def load_geo_data(save_to_database=True):
+def load_geo_data(iso3s, regions, save_to_database=True):
     """Load geo data from blob storage and save to database."""
     adms = []
-    for iso3 in ISO3S:
+    for iso3 in iso3s:
         print(f"loading {iso3} adm to migrate")
-        gdf_in = codab_utils.load_codab_from_blob(iso3, admin_level=2)
+        gdf_in = load_codab_from_blob(iso3, admin_level=2)
         adms.append(gdf_in)
     adm = pd.concat(adms, ignore_index=True)
 
@@ -38,7 +57,7 @@ def load_geo_data(save_to_database=True):
     adm.columns = adm.columns.str.lower()
 
     region_dicts = []
-    for region in REGIONS:
+    for region in regions:
         adm_names = adm[
             adm[f"adm{region['adm_level']}_pcode"].isin(region["pcodes"])
         ][f"adm{region['adm_level']}_name"].unique()
@@ -53,7 +72,7 @@ def load_geo_data(save_to_database=True):
 
     if save_to_database:
         df_out.to_sql(
-            "adm",
+            "admin_lookup",
             schema="app",
             con=ocha.get_engine(STAGE, write=True),
             if_exists="replace",
@@ -62,21 +81,28 @@ def load_geo_data(save_to_database=True):
 
 
 if __name__ == "__main__":
-    load_geo_data()
+    with open("pipelines/config.yml", "r") as f:
+        config = yaml.safe_load(f)
+
+    iso3s = config["iso3s"]
+    regions = config["regions"]
+    adm_levels = config["adm_levels"]
+
+    load_geo_data(iso3s, regions)
 
     region_gdfs = []
-    for adm_level in ADM_LEVELS:
+    for adm_level in adm_levels:
         print(f"Processing geo data for admin {adm_level}...")
         gdfs = []
-        for iso3 in ISO3S:
-            gdf = codab_utils.load_codab_from_blob(iso3, admin_level=adm_level)
+        for iso3 in iso3s:
+            gdf = load_codab_from_blob(iso3, admin_level=adm_level)
             if (iso3 in ["nga", "tcd"]) and (adm_level == 0):
                 gdf = gdf.dissolve()
             gdfs.append(gdf)
         gdf_all = pd.concat(gdfs)
 
         # aggregate relevant regions
-        for region in REGIONS:
+        for region in regions:
             if region["adm_level"] == adm_level:
                 gdf_region_in = gdf_all[
                     gdf_all[f"ADM{adm_level}_PCODE"].isin(region["pcodes"])

@@ -27,7 +27,7 @@ def fetch_flood_data(pcode, adm_level):
         """
     )
     params = {"pcode": pcode, "adm_level": adm_level}
-    query_adm = text("select * from app.adm")
+    query_adm = text("select * from app.admin_lookup")
     logger.info(f"Getting flood exposure data for {pcode}...")
     start = time.time()
     engine = ocha.get_engine(STAGE)
