@@ -56,6 +56,8 @@ def load_geo_data(iso3s, regions, save_to_database=True):
     adm.drop(columns=["geometry"], inplace=True)
     adm.columns = adm.columns.str.lower()
 
+    print(iso3s)
+    print(regions)
     region_dicts = []
     for region in regions:
         adm_names = adm[
