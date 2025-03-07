@@ -54,14 +54,14 @@ jobs:
           ISO3=$(echo "${{ github.event.inputs.iso3 }}" | tr '[:upper:]' '[:lower:]')
 
           # Check if ISO3 already exists in config
-          if grep -q "  - \"$ISO3\"" config.yml; then
+          if grep -q "  - \"$ISO3\"" pipelines/config.yml; then
             echo "ISO3 code $ISO3 already exists in config.yml"
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             # Update the YAML file to add the ISO3 code
             # Find the line after the last ISO3 entry and add the new one
-            LAST_ISO3_LINE=$(grep -n "  - \"" config.yml | tail -1 | cut -d: -f1)
-            sed -i "$LAST_ISO3_LINE a\\  - \"$ISO3\"" config.yml
+            LAST_ISO3_LINE=$(grep -n "  - \"" pipelines/config.yml | tail -1 | cut -d: -f1)
+            sed -i "$LAST_ISO3_LINE a\\  - \"$ISO3\"" pipelines/config.yml
             echo "ISO3 code $ISO3 added to config.yml"
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
