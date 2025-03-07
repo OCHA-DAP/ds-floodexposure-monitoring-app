@@ -49,7 +49,7 @@ jobs:
       # Update the iso3.txt file to add the new ISO3 code
       - name: Update iso3.txt with new ISO3 code
         id: update-config
-        run: python pipelines/update_iso3.py
+        run: python pipelines/update_iso3.py ${{ github.event.inputs.iso3 }}
 
       # Run the geodata download script
       # Will write to the database and read from Azure blob
