@@ -81,6 +81,22 @@ def load_geo_data(iso3s, regions, save_to_database=True):
 
 
 if __name__ == "__main__":
+    # Check the env vars are defined properly
+    if STAGE == "prod":
+        blob_sas = os.environ.get("DSCI_AZ_BLOB_PROD_SAS")
+        db_password = os.environ.get("DSCI_AZ_DB_PROD_PW_WRITE")
+        db_username = os.environ.get("DSCI_AZ_DB_PROD_UID_WRITE")
+    else:
+        blob_sas = os.environ.get("DSCI_AZ_BLOB_DEV_SAS")
+        db_password = os.environ.get("DSCI_AZ_DB_DEV_PW_WRITE")
+        db_username = os.environ.get("DSCI_AZ_DB_DEV_UID_WRITE")
+
+    # Check if we have the required credentials
+    if not blob_sas or not db_password or not db_username:
+        raise ValueError(
+            f"Missing credentials for {STAGE} environment. Please check GitHub secrets."
+        )
+
     with open("pipelines/config.yml", "r") as f:
         config = yaml.safe_load(f)
 
