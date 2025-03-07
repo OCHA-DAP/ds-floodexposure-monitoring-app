@@ -1,8 +1,9 @@
 import geopandas as gpd
+import ocha_stratus as ocha
 import pandas as pd
 
 from constants import ADM_LEVELS, ISO3S, REGIONS, STAGE
-from utils import codab_utils, data_utils
+from utils import codab_utils
 
 
 def clean_gdf(gdf):
@@ -54,7 +55,7 @@ def load_geo_data(save_to_database=True):
         df_out.to_sql(
             "adm",
             schema="app",
-            con=data_utils.get_engine(STAGE),
+            con=ocha.get_engine(STAGE, write=True),
             if_exists="replace",
             index=False,
         )
