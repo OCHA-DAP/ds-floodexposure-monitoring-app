@@ -91,15 +91,6 @@ CHD_RED = "#f2645a"
 
 NAVBAR_HEIGHT = 60
 
-AZURE_DB_PW_DEV = os.getenv("DSCI_AZ_DB_DEV_PW_WRITE")
-AZURE_DB_PW_PROD = os.getenv("AZURE_DB_PW_PROD")
-AZURE_DB_UID = os.getenv("DSCI_AZ_DB_DEV_UID_WRITE")
-
-AZURE_DB_BASE_URL = "postgresql+psycopg2://{uid}:{pw}@{db_name}.postgres.database.azure.com/postgres"  # noqa: E501
-
-PROD_BLOB_SAS = os.getenv("DSCI_AZ_BLOB_PROD_SAS")
-DEV_BLOB_SAS = os.getenv("DSCI_AZ_BLOB_DEV_SAS")
-
 ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'  # noqa
 URL = "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
 URL_LABELS = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
