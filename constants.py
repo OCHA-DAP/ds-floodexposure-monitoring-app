@@ -6,7 +6,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-ISO3S = ["ner", "nga", "cmr", "tcd", "bfa", "eth", "ssd", "som", "mli", "cod"]
+ISO3S = [
+    "ner",
+    "nga",
+    "cmr",
+    "tcd",
+    "bfa",
+    "eth",
+    "ssd",
+    "som",
+    "mli",
+    "cod",
+    "moz",
+    "mwi",
+]
 ADM_LEVELS = [0, 1, 2]
 
 ROLLING_WINDOW = 7
@@ -77,15 +90,6 @@ CHD_MINT = "#1ebfb3"
 CHD_RED = "#f2645a"
 
 NAVBAR_HEIGHT = 60
-
-AZURE_DB_PW_DEV = os.getenv("AZURE_DB_PW_DEV")
-AZURE_DB_PW_PROD = os.getenv("AZURE_DB_PW_PROD")
-AZURE_DB_UID = os.getenv("AZURE_DB_UID")
-
-AZURE_DB_BASE_URL = "postgresql+psycopg2://{uid}:{pw}@{db_name}.postgres.database.azure.com/postgres"  # noqa: E501
-
-PROD_BLOB_SAS = os.getenv("PROD_BLOB_SAS")
-DEV_BLOB_SAS = os.getenv("DEV_BLOB_SAS")
 
 ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'  # noqa
 URL = "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"

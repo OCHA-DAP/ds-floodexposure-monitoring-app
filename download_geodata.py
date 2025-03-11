@@ -1,11 +1,11 @@
 import geopandas as gpd
 import pandas as pd
 
-from constants import ADM_LEVELS, ISO3S, REGIONS, STAGE
-from utils import codab_utils, data_utils
+from constants import ADM_LEVELS, ISO3S, REGIONS
+from utils import codab_utils
 
 
-def clean_gdf(gdf):
+def clean_gdf(gdf, adm_level):
     gdf["name"] = gdf.apply(
         lambda row: (
             row[f"ADM{adm_level}_FR"]
@@ -20,49 +20,7 @@ def clean_gdf(gdf):
     return gdf
 
 
-def load_geo_data(save_to_database=True):
-    """Load geo data from blob storage and save to database."""
-    adms = []
-    for iso3 in ISO3S:
-        print(f"loading {iso3} adm to migrate")
-        gdf_in = codab_utils.load_codab_from_blob(iso3, admin_level=2)
-        adms.append(gdf_in)
-    adm = pd.concat(adms, ignore_index=True)
-
-    for adm_level in range(3):
-        adm[f"ADM{adm_level}_NAME"] = adm[f"ADM{adm_level}_FR"].fillna(
-            adm[f"ADM{adm_level}_EN"]
-        )
-    adm.drop(columns=["geometry"], inplace=True)
-    adm.columns = adm.columns.str.lower()
-
-    region_dicts = []
-    for region in REGIONS:
-        adm_names = adm[
-            adm[f"adm{region['adm_level']}_pcode"].isin(region["pcodes"])
-        ][f"adm{region['adm_level']}_name"].unique()
-        region_dicts.append(
-            {
-                "admregion_pcode": f'{region["iso3"]}_region_{region["region_number"]}',
-                "admregion_name": f'{region["region_name"]} ({", ".join(adm_names)})',
-            }
-        )
-
-    df_out = pd.concat([adm, pd.DataFrame(region_dicts)], ignore_index=True)
-
-    if save_to_database:
-        df_out.to_sql(
-            "adm",
-            schema="app",
-            con=data_utils.get_engine(STAGE),
-            if_exists="replace",
-            index=False,
-        )
-
-
 if __name__ == "__main__":
-    load_geo_data()
-
     region_gdfs = []
     for adm_level in ADM_LEVELS:
         print(f"Processing geo data for admin {adm_level}...")
@@ -94,15 +52,15 @@ if __name__ == "__main__":
             gdf_all_outline = gpd.GeoDataFrame(
                 gdf_all_outline, geometry="geometry"
             )
-            gdf_all_outline = clean_gdf(gdf_all_outline)
+            gdf_all_outline = clean_gdf(gdf_all_outline, adm_level)
             gdf_all_outline.to_file(
                 f"assets/geo/adm{adm_level}_outline.json", driver="GeoJSON"
             )
 
         gdf_all.geometry = gdf_all.geometry
         gdf_all = gpd.GeoDataFrame(gdf_all, geometry="geometry")
-        gdf_all = clean_gdf(gdf_all)
-
+        gdf_all = clean_gdf(gdf_all, adm_level)
+        gdf_all["geometry"] = gdf_all.geometry.simplify(tolerance=0.005)
         gdf_all.to_file(f"assets/geo/adm{adm_level}.json", driver="GeoJSON")
 
     region_gdf = pd.concat(region_gdfs)
