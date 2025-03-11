@@ -206,6 +206,8 @@ def register_callbacks(app):
                 empty_children,
                 dmc.Center("No data available"),
                 "",
+                no_update,
+                no_update,
             )
 
         # Process data
