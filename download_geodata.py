@@ -60,7 +60,7 @@ if __name__ == "__main__":
         gdf_all.geometry = gdf_all.geometry
         gdf_all = gpd.GeoDataFrame(gdf_all, geometry="geometry")
         gdf_all = clean_gdf(gdf_all, adm_level)
-
+        gdf_all["geometry"] = gdf_all.geometry.simplify(tolerance=0.005)
         gdf_all.to_file(f"assets/geo/adm{adm_level}.json", driver="GeoJSON")
 
     region_gdf = pd.concat(region_gdfs)
