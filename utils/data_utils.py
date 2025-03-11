@@ -123,9 +123,7 @@ def calculate_return_periods(df_peaks, rp: int = 3):
 
 def get_current_quantiles(adm_level):
     quantile_table = (
-        "current_quantile_regions"
-        if adm_level == "region"
-        else "current_quantile"
+        "quantile_regions" if adm_level == "region" else "quantile"
     )
 
     engine = get_engine(STAGE)
