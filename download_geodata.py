@@ -5,7 +5,7 @@ from constants import ADM_LEVELS, ISO3S, REGIONS, STAGE
 from utils import codab_utils, data_utils
 
 
-def clean_gdf(gdf):
+def clean_gdf(gdf, adm_level):
     gdf["name"] = gdf.apply(
         lambda row: (
             row[f"ADM{adm_level}_FR"]
@@ -52,7 +52,7 @@ def load_geo_data(save_to_database=True):
 
     if save_to_database:
         df_out.to_sql(
-            "adm",
+            "admin_lookup",
             schema="app",
             con=data_utils.get_engine(STAGE),
             if_exists="replace",
@@ -94,14 +94,14 @@ if __name__ == "__main__":
             gdf_all_outline = gpd.GeoDataFrame(
                 gdf_all_outline, geometry="geometry"
             )
-            gdf_all_outline = clean_gdf(gdf_all_outline)
+            gdf_all_outline = clean_gdf(gdf_all_outline, adm_level)
             gdf_all_outline.to_file(
                 f"assets/geo/adm{adm_level}_outline.json", driver="GeoJSON"
             )
 
         gdf_all.geometry = gdf_all.geometry
         gdf_all = gpd.GeoDataFrame(gdf_all, geometry="geometry")
-        gdf_all = clean_gdf(gdf_all)
+        gdf_all = clean_gdf(gdf_all, adm_level)
 
         gdf_all.to_file(f"assets/geo/adm{adm_level}.json", driver="GeoJSON")
 
