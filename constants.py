@@ -22,7 +22,7 @@ ISO3S = [
 ]
 ADM_LEVELS = [0, 1, 2]
 
-ROLLING_WINDOW = 7
+ROLLING_WINDOW = int(os.getenv("ROLL_WINDOW", 7))
 
 iso3_to_pcode = {
     "ner": "NE",
