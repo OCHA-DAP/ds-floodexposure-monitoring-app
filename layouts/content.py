@@ -3,7 +3,7 @@ import dash_leaflet as dl
 import dash_mantine_components as dmc
 from dash import dcc, html
 
-from constants import ATTRIBUTION, URL
+from constants import ATTRIBUTION, ROLLING_WINDOW, URL
 
 NAVBAR_HEIGHT = 60 + 48
 GUTTER = 0
@@ -88,9 +88,9 @@ def info_container():
                     dbc.AccordionItem(
                         [
                             dcc.Markdown(
-                                """
+                                f"""
                     Daily flood exposure rasters are calculated by multiplying the gridded population (UN adjusted, 1km resolution, 2020)
-                    by the 7-day rolling average of the flood extent (SFED_AREA, at a ≈10km resolution), masking out areas where the flood
+                    by the **{ROLLING_WINDOW}-day rolling average** of the flood extent (SFED_AREA, at a ≈10km resolution), masking out areas where the flood
                     extent is  less than 5% to reduce noise. The daily exposure rasters are then aggregated to each admin level (0-2).
                     This is similar to the [method](https://docs.google.com/document/d/16-TrPdCF7dCx5thpdA7dXB8k1MUOJUovWaRVIjEJNUE/edit?tab=t.0#heading=h.rtvq16oq23gp)
                     initially developed for the 2024 Somalia HNRP.
