@@ -3,9 +3,11 @@ import json
 import dash_leaflet as dl
 import dash_leaflet.express as dlx
 import dash_mantine_components as dmc
+import geopandas as gpd
 import pandas as pd
 from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
+from fsspec.implementations.http import HTTPFileSystem
 
 from constants import ATTRIBUTION, URL, URL_LABELS
 from utils.chart_utils import create_return_period_plot, create_timeseries_plot
@@ -19,6 +21,21 @@ from utils.data_utils import (
 from utils.log_utils import get_logger
 
 logger = get_logger("callbacks")
+
+ISO3S = [
+    "NER",
+    "NGA",
+    "CMR",
+    "TCD",
+    "BFA",
+    "ETH",
+    "SSD",
+    "SOM",
+    "MLI",
+    "COD",
+    "MOZ",
+    "MWI",
+]
 
 style_handle = assign(
     """
@@ -78,8 +95,25 @@ def register_callbacks(app):
 
     @app.callback(Output("map", "children"), Input("adm-level", "value"))
     def set_adm_value(adm_level):
-        with open(f"assets/geo/adm{adm_level}.json", "r") as file:
-            data = json.load(file)
+        print("changing adm level")
+
+        GEOPARQUET_URLS = {
+            "0": "https://data.fieldmaps.io/edge-matched/humanitarian/intl/adm0_polygons.parquet",
+            "1": "https://data.fieldmaps.io/edge-matched/humanitarian/intl/adm1_polygons.parquet",
+            "2": "https://data.fieldmaps.io/edge-matched/humanitarian/intl/adm2_polygons.parquet",
+        }
+        url = GEOPARQUET_URLS[adm_level]
+
+        filters = [("iso_3", "in", ISO3S)]
+        filesystem = HTTPFileSystem()
+        gdf = gpd.read_parquet(url, filters=filters, filesystem=filesystem)
+        gdf = gdf.rename(columns={f"adm{adm_level}_src": "pcode"})
+
+        # Convert to GeoJSON format
+        geojson_str = gdf[
+            ["pcode", f"adm{adm_level}_name", "geometry"]
+        ].to_json()
+        data = json.loads(geojson_str)
 
         df_quantile = get_current_quantiles(adm_level)
         features_df = pd.DataFrame(
@@ -238,9 +272,9 @@ def register_callbacks(app):
             f"{rp_plot_title}: {name}",
         )
 
-    @app.callback(
-        Output("hover-place-name", "children"), Input("geojson", "hoverData")
-    )
-    def info_hover(feature):
-        if feature:
-            return feature["properties"]["name"]
+    # @app.callback(
+    #     Output("hover-place-name", "children"), Input("geojson", "hoverData")
+    # )
+    # def info_hover(feature):
+    #     if feature:
+    #         return feature["properties"]["name"]
