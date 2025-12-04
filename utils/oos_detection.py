@@ -17,7 +17,7 @@ min_oss_run_length = 30 # Minimum consecutive days to consider a period as OOS
 """
 
 # ==================== PARAMETER GRID ====================
-PERCENTAGE_GRID = [95, 96, 97, 98, 99]
+PERCENTAGE_GRID = [80, 85, 90, 95, 99]
 WINDOW_DAYS_GRID = [10, 15, 20, 25, 30]
 ADM_LEVEL_GRID = [0, 1, 2]
 MIN_OOS_RUN_LENGTH_GRID = [15, 30]
@@ -343,10 +343,10 @@ def run_parameter_grid_search(
             
             # Skip if file already exists
             if os.path.exists(output_file):
-                tqdm.write(f"Skipping existing: {file_name}")
+                # tqdm.write(f"Skipping existing: {file_name}")
                 continue
             
-            tqdm.write(f"[{i}/{len(param_combinations)}] Processing adm{adm_level}, length{min_oos_length}, pct{pct_threshold}, win{window_days}")
+            # tqdm.write(f"[{i}/{len(param_combinations)}] Processing adm{adm_level}, length{min_oos_length}, pct{pct_threshold}, win{window_days}")
             # Run analysis
             result_df = run_analysis(
                 container=container,

@@ -6,6 +6,8 @@ import seaborn as sns
 from pathlib import Path
 from glob import glob
 from typing import Dict, List
+import seaborn as sns
+from matplotlib.gridspec import GridSpec
 
 def read_and_concatenate_parquet(folder_path):
     """
@@ -18,7 +20,7 @@ def read_and_concatenate_parquet(folder_path):
         print(f"No parquet files found in {folder_path}")
         return None
 
-    print(f"Found {len(parquet_files)} parquet files")
+    # print(f"Found {len(parquet_files)} parquet files")
 
     # Read and concatenate all files
     dfs = []
@@ -29,7 +31,7 @@ def read_and_concatenate_parquet(folder_path):
     # Concatenate all dataframes
     combined_df = pd.concat(dfs, ignore_index=True)
 
-    print(f"Combined DataFrame shape: {combined_df.shape}")
+    # print(f"Combined DataFrame shape: {combined_df.shape}")
 
     return combined_df
 
@@ -124,7 +126,7 @@ def plot_bic_components(results, length, admin_level, save_plot=True):
     results_valid = results[results['k'] > 0].copy()
 
     # Create figure with 2x2 subplots
-    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+    fig, axes = plt.subplots(2, 2, figsize=(8, 6), dpi=150)
     fig.suptitle('BIC Components vs Parameters', fontsize=16, fontweight='bold')
 
     # Prepare data for heatmaps
@@ -233,16 +235,6 @@ def analyze_bic_grid_search(
 def get_bic_summary_stats(results: pd.DataFrame) -> pd.DataFrame:
     """
     Calculate summary statistics by parameter combination.
-    
-    Parameters:
-    -----------
-    results : pd.DataFrame
-        BIC analysis results
-        
-    Returns:
-    --------
-    pd.DataFrame
-        Summary statistics grouped by threshold and window
     """
     results = results[results['k'] > 0].copy()
 
@@ -250,11 +242,10 @@ def get_bic_summary_stats(results: pd.DataFrame) -> pd.DataFrame:
         'k': ['mean', 'std'],
         'n': ['mean', 'std'],
         'SS_W': ['mean', 'std'],
-        'BIC': ['mean', 'std']
+        'BIC': ['mean', 'median', 'std']  # Added median
     }).round(2)
     
     return summary
-
 
 def get_best_config_per_pcode(results: pd.DataFrame) -> pd.DataFrame:
     """
@@ -336,7 +327,7 @@ def find_best_average_config(
     length: int
 ):
     """
-    Find the best configuration based on average BIC across all pcodes.
+    Find the best configuration based on median BIC across all pcodes.
     
     Parameters:
     -----------
@@ -355,29 +346,34 @@ def find_best_average_config(
         - 'length': int
         - 'percentage_threshold': float
         - 'context_window_days': int
+        - 'median_BIC': float
         - 'avg_BIC': float
     """
     results = results[results['k'] > 0].copy()
 
-    avg_bic = results.groupby(
-        ['percentage_threshold', 'context_window_days']
-    )['BIC'].mean()
+    # Group by parameter configuration
+    grouped = results.groupby(['percentage_threshold', 'context_window_days'])['BIC']
+    
+    # Calculate both median and mean
+    median_bic = grouped.median()
+    avg_bic = grouped.mean()
 
-    if len(avg_bic) == 0:
+    if len(median_bic) == 0:
         raise ValueError(
             f"No parameter combinations with valid BIC for adm_level={adm_level}, length={length}"
         )
     
-    best_idx = avg_bic.idxmin()
+    # Select best config based on median BIC (more robust)
+    best_idx = median_bic.idxmin()
     best_threshold, best_window = best_idx # type: ignore
-    best_bic_value = avg_bic.min()
     
     return {
         'adm_level': adm_level,
         'length': length,
         'percentage_threshold': best_threshold,
         'context_window_days': best_window,
-        'avg_BIC': best_bic_value
+        'median_BIC': median_bic.min(),
+        'avg_BIC': avg_bic[best_idx]
     }
 
 
@@ -436,20 +432,25 @@ def print_bic_analysis_report(
     print("\nMost common combination:")
     print(common['combination'].head())
     
-    # Average BIC
+    # Average and Median BIC
     print("\n" + "=" * 70)
-    print("AVERAGE BIC BY PARAMETER COMBINATION")
+    print("AVERAGE & MEDIAN BIC BY PARAMETER COMBINATION")
     print("=" * 70)
-    avg_bic_df = get_average_bic_by_params(results)
-    print(avg_bic_df)
+    grouped = results.groupby(['percentage_threshold', 'context_window_days'])['BIC']
+    bic_stats = pd.DataFrame({
+        'median_BIC': grouped.median(),
+        'avg_BIC': grouped.mean()
+    }).sort_values('median_BIC')
+    print(bic_stats)
     
-    # Best average
+    # Best average (now based on median)
     best_avg = find_best_average_config(results, adm_level, length)
-    print(f"\nBest average configuration:")
+    print(f"\nBest configuration (by median BIC):")
     print(f"  Admin Level: {best_avg['adm_level']}")
     print(f"  Length: {best_avg['length']}")
     print(f"  Threshold: {best_avg['percentage_threshold']}%")
     print(f"  Window: {best_avg['context_window_days']} days")
+    print(f"  Median BIC: {best_avg['median_BIC']:.2f}")
     print(f"  Avg BIC: {best_avg['avg_BIC']:.2f}")
     
     # Summary stats
@@ -480,8 +481,9 @@ def run_comprehensive_bic_analysis(
     Returns:
     --------
     pd.DataFrame
-        DataFrame with best average configuration for each combination:
-        ['adm_level', 'length', 'percentage_threshold', 'context_window_days', 'avg_BIC']
+        DataFrame with best configuration (by median BIC) for each combination:
+        ['adm_level', 'length', 'percentage_threshold', 'context_window_days', 
+         'avg_BIC', 'median_BIC']
     """
     best_configs = []
     
@@ -499,14 +501,15 @@ def run_comprehensive_bic_analysis(
 
                 results_valid = results[results['k'] > 0].copy()
                 
-                # Get best average config
+                # Get best config (by median BIC)
                 best_config = find_best_average_config(results_valid, adm_level, length)
                 best_configs.append(best_config)
             
                 if verbose:
                     print(f"  ✓ Best config: threshold={best_config['percentage_threshold']}%, "
                         f"window={best_config['context_window_days']} days, "
-                        f"BIC={best_config['avg_BIC']:.2f}\n")
+                        f"median BIC={best_config['median_BIC']:.2f}, "
+                        f"avg BIC={best_config['avg_BIC']:.2f}\n")
                     
             except (ValueError, FileNotFoundError) as e:
                 print(f"  ✗ Skipped: {e}\n")
@@ -518,7 +521,220 @@ def run_comprehensive_bic_analysis(
     # Convert to DataFrame
     df_best_configs = pd.DataFrame(best_configs)
     
-    # Sort by avg_BIC to see best overall
-    df_best_configs = df_best_configs.sort_values('avg_BIC').reset_index(drop=True)
+    # Sort by median_BIC (primary criterion) to see best overall
+    df_best_configs = df_best_configs.sort_values('median_BIC').reset_index(drop=True)
     
     return df_best_configs
+
+def create_compact_bic_figure(
+    results_dict: dict,
+    save_plot: bool = True,
+    dpi: int = 300
+):
+    """
+    Create compact 1x3 figure showing key BIC model selection insights.
+    
+    Parameters:
+    -----------
+    results_dict : dict
+        Dictionary with keys (adm_level, length) and DataFrames from analyze_bic_grid_search()
+        Must include all combinations: (1,15), (1,30), (2,15), (2,30)
+    save_plot : bool, optional
+        If True, save the plot (default: True)
+    dpi : int, optional
+        Resolution for saved figure (default: 300)
+    """
+    # Create figure
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    
+    # Define colors
+    colors = {
+        'admin1': '#2E86AB',
+        'admin2': '#A23B72',
+        'median': '#2A9D8F',
+        'mean': '#E63946'
+    }
+    
+    # ========================================================================
+    # PANEL C: SCATTER MEDIAN VS MEAN
+    # ========================================================================
+    
+    ax_e = axes[0]
+    
+    results_1_30 = results_dict[(1, 30)]
+    
+    # Aggregate stats for all configs (threshold=99%, min_length=30)
+    scatter_data = []
+    for adm in [1, 2]:
+        results = results_dict[(adm, 30)]
+        results_99 = results[(results['percentage_threshold'] == 99) & 
+                            (results['k'] > 0)].copy()
+        
+        for window in results_99['context_window_days'].unique():
+            bic_vals = results_99[
+                results_99['context_window_days'] == window
+            ]['BIC'].values
+            
+            scatter_data.append({
+                'adm': adm,
+                'window': window,
+                'median': np.median(bic_vals),
+                'mean': np.mean(bic_vals)
+            })
+    
+    df_scatter = pd.DataFrame(scatter_data)
+    
+    for adm in [1, 2]:
+        df_adm = df_scatter[df_scatter['adm'] == adm]
+        color = colors['admin1'] if adm == 1 else colors['admin2']
+        ax_e.scatter(df_adm['mean'], df_adm['median'], 
+                    s=120, alpha=0.7, color=color, 
+                    label=f'Admin {adm}', edgecolors='black', linewidth=1.5)
+        
+        # Annotate window values
+        for idx, (_, row) in enumerate(df_adm.iterrows()):
+            window = int(row['window'])
+            if adm == 1:
+                if window == 10:
+                    offset_x, offset_y = -20, -15
+                elif window == 15:
+                    offset_x, offset_y = 10, 10
+                elif window == 20:
+                    offset_x, offset_y = -20, 10
+                elif window == 25:
+                    offset_x, offset_y = 10, -15
+                else:
+                    offset_x, offset_y = 10, 10
+            else:
+                if window == 10:
+                    offset_x, offset_y = 10, -15
+                elif window == 15:
+                    offset_x, offset_y = -20, 10
+                elif window == 20:
+                    offset_x, offset_y = 10, 10
+                elif window == 25:
+                    offset_x, offset_y = -20, -15
+                else:
+                    offset_x, offset_y = 10, 10
+                    
+            ax_e.annotate(f"{window}d", 
+                         xy=(row['mean'], row['median']),
+                         xytext=(offset_x, offset_y), textcoords='offset points',
+                         fontsize=8, fontweight='bold',
+                         bbox=dict(boxstyle='round,pad=0.3', 
+                                  facecolor='white', edgecolor=color, alpha=0.9))
+    
+    # Add diagonal line
+    lims = [min(ax_e.get_xlim()[0], ax_e.get_ylim()[0]),
+            max(ax_e.get_xlim()[1], ax_e.get_ylim()[1])]
+    ax_e.plot(lims, lims, 'k--', alpha=0.5, linewidth=1.5, label='Mean = Median')
+    
+    ax_e.set_xlabel('Mean BIC', fontsize=11, fontweight='bold')
+    ax_e.set_ylabel('Median BIC', fontsize=11, fontweight='bold')
+    ax_e.set_title('A) Mean vs Median Divergence\n(threshold=99%, min_length=30d)',
+                   fontsize=12, fontweight='bold', pad=10)
+    ax_e.legend(fontsize=9, loc='lower right', framealpha=0.95)
+    ax_e.grid(True, alpha=0.3)
+    
+    # ========================================================================
+    # PANEL D: INVERSE RELATIONSHIP
+    # ========================================================================
+    
+    ax_g = axes[1]
+    
+    inverse_data = []
+    for (adm, length), results in results_dict.items():
+        results_valid = results[results['k'] > 0].copy()
+        grouped = results_valid.groupby(['percentage_threshold', 'context_window_days'])['BIC']
+        median_bic = grouped.median()
+        best_idx = median_bic.idxmin()
+        
+        inverse_data.append({
+            'adm': adm,
+            'length': length,
+            'window': best_idx[1]
+        })
+    
+    df_inverse = pd.DataFrame(inverse_data)
+    
+    for adm, color_key in [(1, 'admin1'), (2, 'admin2')]:
+        df_adm = df_inverse[df_inverse['adm'] == adm].sort_values('length')
+        
+        ax_g.plot(df_adm['length'], df_adm['window'],
+                 marker='o', markersize=14, linewidth=3,
+                 color=colors[color_key], label=f'Admin Level {adm}',
+                 alpha=0.8)
+        
+        # Add value labels
+        for _, row in df_adm.iterrows():
+            if adm == 1:
+                y_offset = 18
+            else:
+                y_offset = 18 if row['length'] == 30 else -22
+                
+            ax_g.annotate(f"{int(row['window'])}d",
+                         xy=(row['length'], row['window']),
+                         xytext=(0, y_offset), textcoords='offset points',
+                         fontsize=10, fontweight='bold',
+                         color=colors[color_key],
+                         ha='center',
+                         bbox=dict(boxstyle='round,pad=0.4', facecolor='white',
+                                  edgecolor=colors[color_key], alpha=0.9, linewidth=2))
+    
+    ax_g.set_xlabel('Min OOS Run Length (days)', fontsize=11, fontweight='bold')
+    ax_g.set_ylabel('Optimal Context Window (days)', fontsize=11, fontweight='bold')
+    ax_g.set_title('B) Inverse Relationship\nMin Length vs Optimal Window',
+                   fontsize=12, fontweight='bold', pad=10)
+    ax_g.set_xticks([15, 30])
+    ax_g.legend(fontsize=10, loc='upper right', framealpha=0.95)
+    ax_g.grid(True, alpha=0.3)
+    ax_g.set_ylim(8, 27)
+    
+    # ========================================================================
+    # PANEL E: SENSITIVITY CURVES
+    # ========================================================================
+    
+    ax_f = axes[2]
+    
+    for adm, color_key in [(1, 'admin1'), (2, 'admin2')]:
+        results = results_dict[(adm, 30)]
+        results_99 = results[(results['percentage_threshold'] == 99) & 
+                            (results['k'] > 0)].copy()
+        
+        stats = results_99.groupby('context_window_days')['BIC'].agg(['median', 'mean'])
+        stats = stats.sort_index()
+        
+        ax_f.plot(stats.index, stats['median'], 
+                 marker='o', markersize=10, linewidth=2.5, 
+                 color=colors[color_key], alpha=0.9,
+                 label=f'Admin {adm} (median)', linestyle='-')
+        ax_f.plot(stats.index, stats['mean'],
+                 marker='s', markersize=7, linewidth=2, 
+                 color=colors[color_key], alpha=0.5,
+                 label=f'Admin {adm} (mean)', linestyle='--')
+        
+        # Mark best median
+        best_median = stats['median'].idxmin()
+        ax_f.scatter(best_median, stats.loc[best_median, 'median'],
+                    s=300, color=colors[color_key], marker='*',
+                    edgecolors='black', linewidths=2.5, zorder=5)
+    
+    ax_f.set_xlabel('Context Window (days)', fontsize=11, fontweight='bold')
+    ax_f.set_ylabel('BIC', fontsize=11, fontweight='bold')
+    ax_f.set_title('C) BIC Sensitivity to Window\n(threshold=99%, min_length=30d)',
+                   fontsize=12, fontweight='bold', pad=10)
+    ax_f.legend(fontsize=8, loc='lower right', framealpha=0.95)
+    ax_f.grid(True, alpha=0.3)
+    
+    # Overall title
+    fig.suptitle('Model Selection via BIC Analysis',
+                 fontsize=16, fontweight='bold', y=1.02)
+    
+    plt.tight_layout()
+    
+    if save_plot:
+        filename = 'bic_model_selection_compact.png'
+        fig.savefig(filename, dpi=dpi, bbox_inches='tight')
+        print(f"Figure saved as: {filename}")
+    
+    plt.show()
