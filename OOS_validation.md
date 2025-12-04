@@ -1,6 +1,302 @@
-# Task: Binary Temporal Segmentation Quality Assessment
+---
+jupyter:
+  jupytext:
+    formats: ipynb,md
+    text_representation:
+      extension: .md
+      format_name: markdown
+      format_version: '1.3'
+      jupytext_version: 1.18.1
+  kernelspec:
+    display_name: venv
+    language: python
+    name: python3
+---
 
-## Problem Statement
+# Out Of Season Detection in Flood Exposure Monitoring
+
+```python
+# Might also need to install
+# %pip install jupyter_black
+# %pip install nbformat>=4.2.0
+
+%load_ext jupyter_black
+%load_ext autoreload
+%autoreload 2
+```
+
+```python
+import pandas as pd
+import ocha_stratus as stratus  # need v 0.1.5
+from dotenv import load_dotenv
+import numpy as np
+import matplotlib.pyplot as plt
+
+load_dotenv()
+
+ADM_LEVEL = 2
+engine = stratus.get_engine("dev")
+```
+
+## Looking at the data
+
+The app displays near real time and historical flood exposure data per admin boundary in selected countries across Africa. This data is updated daily in the `app.floodscan_exposure` table on Postgres and is the source that you'll want to use when coming up with a new visualization.
+
+- `iso3`: Country ISO3 code
+- `adm_level`: Admin level (useful for filtering, since we only display one admin level at once)
+- `valid_date`: The date that the flood exposure value applies to
+- `pcode`: The pcode of the admin unit. Use this as a join field to the geospatial data for any mapping
+- `sum`: The sum of flood exposed people in that admin unit for that day. To smooth out noise, we display a rolling sum across N number of days. N defaults to 7 or can otherwise be set to a `ROLL_WINDOW` environment variable. 
+
+```python
+with engine.connect() as conn:
+    df_nga = pd.read_sql(
+        """
+        SELECT * FROM app.floodscan_exposure 
+        WHERE iso3 = 'NGA'
+        """,
+        con=conn,
+    )
+
+df_nga["year"] = pd.to_datetime(df_nga["valid_date"]).dt.year
+df_nga
+```
+
+Let's focus on Adamawa state in Nigeria - Admin Level 2.
+
+```python
+adamawa_pcode = "NG002"
+
+# Filter for adm_level 2 and pcode starting with Adamawa pcode
+df_adamawa_adm2 = df_nga[
+    (df_nga["pcode"].str.startswith(adamawa_pcode))
+    & (df_nga["adm_level"] == 2)
+].copy()
+
+print(f"Found {len(df_adamawa_adm2['pcode'].unique())} regions in Adamawa")
+```
+
+## Out-of-Season Detection Methodology
+
+Starting from the **pcode level**, we calculate a **5-day rolling sum** of exposed population for each year, then identify periods where exposure is consistently zero across years.
+
+### Parameters
+
+- **`PERCENTAGE_THRESHOLD`** = 99%  
+  Minimum percentage of years with zero exposure
+
+- **`CONTEXT_WINDOW_DAYS`** = 30 days  
+  Temporal context window (±30 days around each day)
+
+- **`MIN_OOS_CLUSTER_LENGTH`** = 30 days  
+  Minimum length for valid OOS periods
+
+### How It Works
+
+1. **Calculate Zero-Exposure Frequency**  
+   For each `(pcode, day of year)`, calculate the percentage of years with zero exposure.  
+   *Example: If January 15th had 0 people exposed in 18 out of 20 years → 90% zero-exposure rate.*
+
+2. **Apply Temporal Smoothing**  
+   Average the zero-percentage within a ±30 day window:  
+   `context_zero_pct = mean(zero_pct in [day - 30, day + 30])`
+
+3. **Classify OOS Days**  
+   A day is **Out of Season (OOS)** if `context_zero_pct ≥ 99%`
+
+4. **Filter Short Periods**  
+   Remove OOS periods shorter than 30 days. Only substantial continuous periods are retained.
+
+```python
+from utils.oos_detection import (
+    calculate_context_zero_pct,
+    filter_short_oos_periods,
+)
+
+# ==================== GLOBAL PARAMETERS ====================
+PERCENTAGE_THRESHOLD = 99
+CONTEXT_WINDOW_DAYS = 30
+MIN_OOS_CLUSTER_LENGTH = 30
+ROLLING_SUM_DAYS = 5
+# ===========================================================
+
+# Prepare the dataframe (assuming df_adamawa_adm2 is your input)
+df = df_adamawa_adm2.copy()
+
+# Calculate rolling sum
+df["year"] = pd.to_datetime(df["valid_date"]).dt.year
+df = df.sort_values(by=["pcode", "year", "valid_date"])
+df["rolling_sum_5day"] = df.groupby(["pcode", "year"])["sum"].transform(
+    lambda x: x.rolling(window=ROLLING_SUM_DAYS, min_periods=1).sum()
+)
+
+# Extract month-day
+df["month_day"] = pd.to_datetime(df["valid_date"]).dt.strftime("%m-%d")
+
+# Calculate zero percentage for each pcode-month_day
+zero_pct_data = (
+    df.groupby(["pcode", "month_day"])["rolling_sum_5day"]
+    .apply(lambda x: (x == 0).sum() / len(x) * 100)
+    .reset_index()
+)
+zero_pct_data.columns = ["pcode", "month_day", "zero_pct"]
+zero_pct_data = zero_pct_data.sort_values(["pcode", "month_day"])
+
+# Calculate context zero percentage for each pcode
+context_results = []
+for pcode in zero_pct_data["pcode"].unique():
+    pcode_group = zero_pct_data[zero_pct_data["pcode"] == pcode]
+    pcode_result = calculate_context_zero_pct(
+        pcode_group, window=CONTEXT_WINDOW_DAYS
+    )
+    context_results.append(pcode_result)
+
+context_data = pd.concat(context_results, ignore_index=True)
+
+# Classify as out of season
+context_data["is_out_of_season_raw"] = (
+    context_data["context_zero_pct"] >= PERCENTAGE_THRESHOLD
+)
+
+# Filter short OOS periods for each pcode
+filtered_oos = []
+for pcode in context_data["pcode"].unique():
+    pcode_data = (
+        context_data[context_data["pcode"] == pcode]
+        .sort_values("month_day")
+        .copy()
+    )
+    pcode_data["is_out_of_season"] = filter_short_oos_periods(
+        pcode_data["is_out_of_season_raw"], min_length=MIN_OOS_CLUSTER_LENGTH
+    )
+    filtered_oos.append(pcode_data)
+
+stats_final = pd.concat(filtered_oos, ignore_index=True)
+stats_final
+```
+
+### Visually inspect out of season likelihood
+
+- **Blue line**: Context zero percentage (averaged over ±30 days) – reveals seasonal patterns throughout the year
+- **Red dashed line**: 99% threshold for OOS classification
+- **Red shaded areas**: Valid OOS periods (≥30 consecutive days)
+- **Yellow shaded areas**: Periods filtered out for being too short (<30 days)
+
+```python
+# Visualize OOS detection
+pcodes = stats_final["pcode"].unique()
+n_pcodes = len(pcodes)
+
+n_cols = 3
+n_rows = int(np.ceil(n_pcodes / n_cols))
+
+fig, axes = plt.subplots(n_rows, n_cols, figsize=(18, 7 * n_rows), dpi=100)
+axes = axes.flatten() if n_pcodes > 1 else [axes]
+
+for idx, pcode in enumerate(pcodes):
+    ax = axes[idx]
+
+    pcode_data = stats_final[stats_final["pcode"] == pcode].sort_values(
+        "month_day"
+    )
+
+    # Create x-axis values
+    x = range(len(pcode_data))
+
+    # Add red transparent mask for out of season periods (after filtering)
+    out_of_season_mask = pcode_data["is_out_of_season"].values
+    ax.fill_between(
+        x,
+        0,
+        105,
+        where=out_of_season_mask,
+        alpha=0.3,
+        color="red",
+        label=f"Out of season (≥{MIN_OOS_CLUSTER_LENGTH}d)",
+    )
+
+    # Show filtered out periods in lighter color
+    filtered_out_mask = (
+        pcode_data["is_out_of_season_raw"].values
+        & ~pcode_data["is_out_of_season"].values
+    )
+    if filtered_out_mask.any():
+        ax.fill_between(
+            x,
+            0,
+            105,
+            where=filtered_out_mask,
+            alpha=0.15,
+            color="orange",
+            label=f"Filtered out (<{MIN_OOS_CLUSTER_LENGTH}d)",
+        )
+
+    # Plot context zero percentage (on top of the mask)
+    ax.plot(
+        x,
+        pcode_data["context_zero_pct"],
+        linewidth=2,
+        color="steelblue",
+        label="Context zero %",
+        zorder=3,
+    )
+
+    # Add threshold line (dashed red)
+    ax.axhline(
+        PERCENTAGE_THRESHOLD,
+        color="red",
+        linestyle="--",
+        linewidth=1.5,
+        alpha=0.7,
+        label=f"{PERCENTAGE_THRESHOLD}% threshold",
+        zorder=4,
+    )
+
+    # Count out of season days
+    n_out_of_season = pcode_data["is_out_of_season"].sum()
+    n_filtered = pcode_data["is_out_of_season_raw"].sum() - n_out_of_season
+    pct_out_of_season = n_out_of_season / len(pcode_data) * 100
+
+    title = f"{pcode}\nOut of season: {n_out_of_season}/365 days ({pct_out_of_season:.1f}%)"
+    if n_filtered > 0:
+        title += f"\n({n_filtered} days filtered out)"
+
+    ax.set_title(title, fontsize=10, fontweight="bold")
+    ax.set_xlabel("Day of year", fontsize=9)
+    ax.set_ylabel(f"Context zero % (±{CONTEXT_WINDOW_DAYS} days)", fontsize=9)
+    ax.set_ylim([0, 105])
+    ax.legend(fontsize=7, loc="lower right")
+    ax.grid(True, alpha=0.3, zorder=1)
+
+    # Add month labels
+    month_positions = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+    month_labels = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ]
+    ax.set_xticks(month_positions)
+    ax.set_xticklabels(month_labels, fontsize=8)
+
+# Hide extra subplots
+for idx in range(n_pcodes, len(axes)):
+    axes[idx].set_visible(False)
+
+plt.show()
+```
+
+## Can we find the optimal parameters?
+
+### Problem Statement
 
 Given a continuous time series $y(x) \in [0,1]$ representing daily probabilities 
 for $x \in \{1, 2, \ldots, 365\}$, we apply a segmentation algorithm that produces a 
@@ -22,20 +318,6 @@ different segmentations with varying:
 - Run lengths and internal homogeneity
 - Temporal gaps between runs
 
-## Objective: Model Selection Framework
-
-This is a **model selection problem**: each configuration $(\theta, w)$ defines a 
-distinct segmentation model $M_{\theta,w}$.
-
-**Goal**: Select the model that optimally balances:
-
-1. **Internal Cohesion**: Days within each OOS run should have similar (high) probability values
-2. **Model Parsimony**: Avoid over-segmentation (too many short runs)
-3. **Structural Validity**: Each run must span at least $L_{\min}$ consecutive days
-
-We seek a segmentation that captures genuine OOS periods with stable high probabilities,
-while avoiding fragmented or spurious detections that would result from over-fitting.
-
 
 ```python
 import utils.oos_detection as oos_detection
@@ -43,300 +325,55 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# # ==================== PARAMETER GRID ====================
-# oos_detection.PERCENTAGE_GRID = [95, 96, 97, 98, 99]
-# oos_detection.WINDOW_DAYS_GRID = [10, 15, 20, 25, 30]
-# oos_detection.ADM_LEVEL_GRID = [0, 1, 2]
-# oos_detection.MIN_OOS_RUN_LENGTH_GRID = [15, 30]
-# # =======================================================
+# ==================== PARAMETER GRID ====================
+oos_detection.PERCENTAGE_GRID = [80, 85, 90, 95, 99]
+oos_detection.WINDOW_DAYS_GRID = [10, 15, 20, 25, 30]
+oos_detection.ADM_LEVEL_GRID = [0, 1, 2]
+oos_detection.MIN_OOS_RUN_LENGTH_GRID = [15, 30]
+# =======================================================
 
 oos_detection.run_parameter_grid_search(
     container="dev",
     rolling_sum_days=5,
     output_dir="grid_search_results",
-    max_workers=4
+    max_workers=16,
 )
 ```
 
-    Total combinations: 150
-    
+## Which is the best model configuration? 
 
-    Grid Search:   7%|▋         | 10/150 [00:00<00:01, 99.67it/s]
+This is a **model selection problem**: each configuration $(\theta, w)$ defines a 
+distinct segmentation model $M_{\theta,w}$.
 
-    Skipping existing: adm0_length15_pct95_win10.parquet
-    Skipping existing: adm0_length15_pct95_win15.parquet
-    Skipping existing: adm0_length15_pct95_win20.parquet
-    Skipping existing: adm0_length15_pct95_win25.parquet
-    Skipping existing: adm0_length15_pct95_win30.parquet
-    Skipping existing: adm0_length15_pct96_win10.parquet
-    Skipping existing: adm0_length15_pct96_win15.parquet
-    Skipping existing: adm0_length15_pct96_win20.parquet
-    Skipping existing: adm0_length15_pct96_win25.parquet
-    Skipping existing: adm0_length15_pct96_win30.parquet
-    Skipping existing: adm0_length15_pct97_win10.parquet
-    Skipping existing: adm0_length15_pct97_win15.parquet
-    Skipping existing: adm0_length15_pct97_win20.parquet
-    Skipping existing: adm0_length15_pct97_win25.parquet
-    Skipping existing: adm0_length15_pct97_win30.parquet
-    Skipping existing: adm0_length15_pct98_win10.parquet
-    Skipping existing: adm0_length15_pct98_win15.parquet
-    Skipping existing: adm0_length15_pct98_win20.parquet
-    
+**Goal**: Select the model that optimally balances:
+1. **Internal Cohesion**: Days within each OOS run should have similar (high) probability values
+2. **Model Parsimony**: Avoid over-segmentation (too many short runs)
+3. **Structural Validity**: Each run must span at least $L_{\min}$ consecutive days
 
-                                                                 
-
-    Skipping existing: adm0_length15_pct98_win25.parquet
-    
-
-                                                                  
-
-    Skipping existing: adm0_length15_pct98_win30.parquet
-    Skipping existing: adm0_length15_pct99_win10.parquet
-    Skipping existing: adm0_length15_pct99_win15.parquet
-    Skipping existing: adm0_length15_pct99_win20.parquet
-    Skipping existing: adm0_length15_pct99_win25.parquet
-    Skipping existing: adm0_length15_pct99_win30.parquet
-    Skipping existing: adm0_length30_pct95_win10.parquet
-    Skipping existing: adm0_length30_pct95_win15.parquet
-    Skipping existing: adm0_length30_pct95_win20.parquet
-    Skipping existing: adm0_length30_pct95_win25.parquet
-    Skipping existing: adm0_length30_pct95_win30.parquet
-    Skipping existing: adm0_length30_pct96_win10.parquet
-    Skipping existing: adm0_length30_pct96_win15.parquet
-    Skipping existing: adm0_length30_pct96_win20.parquet
-    Skipping existing: adm0_length30_pct96_win25.parquet
-    Skipping existing: adm0_length30_pct96_win30.parquet
-    Skipping existing: adm0_length30_pct97_win10.parquet
-    
-
-    Grid Search:  21%|██▏       | 32/150 [00:00<00:01, 100.36it/s]
-
-    Skipping existing: adm0_length30_pct97_win15.parquet
-    Skipping existing: adm0_length30_pct97_win20.parquet
-    Skipping existing: adm0_length30_pct97_win25.parquet
-    
-
-    Grid Search:  37%|███▋      | 55/150 [00:00<00:00, 100.50it/s]
-
-    Skipping existing: adm0_length30_pct97_win30.parquet
-    Skipping existing: adm0_length30_pct98_win10.parquet
-    Skipping existing: adm0_length30_pct98_win15.parquet
-    Skipping existing: adm0_length30_pct98_win20.parquet
-    Skipping existing: adm0_length30_pct98_win25.parquet
-    Skipping existing: adm0_length30_pct98_win30.parquet
-    Skipping existing: adm0_length30_pct99_win10.parquet
-    Skipping existing: adm0_length30_pct99_win15.parquet
-    Skipping existing: adm0_length30_pct99_win20.parquet
-    Skipping existing: adm0_length30_pct99_win25.parquet
-    Skipping existing: adm0_length30_pct99_win30.parquet
-    Skipping existing: adm1_length15_pct95_win10.parquet
-    Skipping existing: adm1_length15_pct95_win15.parquet
-    Skipping existing: adm1_length15_pct95_win20.parquet
-    Skipping existing: adm1_length15_pct95_win25.parquet
-    Skipping existing: adm1_length15_pct95_win30.parquet
-    
-
-                                                                  
-
-    Skipping existing: adm1_length15_pct96_win10.parquet
-    
-
-    Grid Search:  44%|████▍     | 66/150 [00:00<00:00, 103.12it/s]
-
-    Skipping existing: adm1_length15_pct96_win15.parquet
-    Skipping existing: adm1_length15_pct96_win20.parquet
-    Skipping existing: adm1_length15_pct96_win25.parquet
-    Skipping existing: adm1_length15_pct96_win30.parquet
-    Skipping existing: adm1_length15_pct97_win10.parquet
-    Skipping existing: adm1_length15_pct97_win15.parquet
-    Skipping existing: adm1_length15_pct97_win20.parquet
-    Skipping existing: adm1_length15_pct97_win25.parquet
-    Skipping existing: adm1_length15_pct97_win30.parquet
-    Skipping existing: adm1_length15_pct98_win10.parquet
-    Skipping existing: adm1_length15_pct98_win15.parquet
-    Skipping existing: adm1_length15_pct98_win20.parquet
-    Skipping existing: adm1_length15_pct98_win25.parquet
-    Skipping existing: adm1_length15_pct98_win30.parquet
-    Skipping existing: adm1_length15_pct99_win10.parquet
-    Skipping existing: adm1_length15_pct99_win15.parquet
-    Skipping existing: adm1_length15_pct99_win20.parquet
-    Skipping existing: adm1_length15_pct99_win25.parquet
-    Skipping existing: adm1_length15_pct99_win30.parquet
-    Skipping existing: adm1_length30_pct95_win10.parquet
-    Skipping existing: adm1_length30_pct95_win15.parquet
-    
-
-    Grid Search:  44%|████▍     | 66/150 [00:00<00:00, 103.12it/s]
-
-    Skipping existing: adm1_length30_pct95_win20.parquet
-    Skipping existing: adm1_length30_pct95_win25.parquet
-    
-
-    Grid Search:  61%|██████▏   | 92/150 [00:00<00:00, 111.78it/s]
-
-    Skipping existing: adm1_length30_pct95_win30.parquet
-    Skipping existing: adm1_length30_pct96_win10.parquet
-    Skipping existing: adm1_length30_pct96_win15.parquet
-    Skipping existing: adm1_length30_pct96_win20.parquet
-    Skipping existing: adm1_length30_pct96_win25.parquet
-    Skipping existing: adm1_length30_pct96_win30.parquet
-    Skipping existing: adm1_length30_pct97_win10.parquet
-    Skipping existing: adm1_length30_pct97_win15.parquet
-    Skipping existing: adm1_length30_pct97_win20.parquet
-    Skipping existing: adm1_length30_pct97_win25.parquet
-    Skipping existing: adm1_length30_pct97_win30.parquet
-    Skipping existing: adm1_length30_pct98_win10.parquet
-    Skipping existing: adm1_length30_pct98_win15.parquet
-    Skipping existing: adm1_length30_pct98_win20.parquet
-    Skipping existing: adm1_length30_pct98_win25.parquet
-    Skipping existing: adm1_length30_pct98_win30.parquet
-    Skipping existing: adm1_length30_pct99_win10.parquet
-    Skipping existing: adm1_length30_pct99_win15.parquet
-    Skipping existing: adm1_length30_pct99_win20.parquet
-    Skipping existing: adm1_length30_pct99_win25.parquet
-    
-
-                                                                  
-
-    Skipping existing: adm1_length30_pct99_win30.parquet
-    Skipping existing: adm2_length15_pct95_win10.parquet
-    Skipping existing: adm2_length15_pct95_win15.parquet
-    
-
-    Grid Search:  77%|███████▋  | 116/150 [00:01<00:00, 112.23it/s]
-
-    Skipping existing: adm2_length15_pct95_win20.parquet
-    Skipping existing: adm2_length15_pct95_win25.parquet
-    Skipping existing: adm2_length15_pct95_win30.parquet
-    Skipping existing: adm2_length15_pct96_win10.parquet
-    Skipping existing: adm2_length15_pct96_win15.parquet
-    Skipping existing: adm2_length15_pct96_win20.parquet
-    Skipping existing: adm2_length15_pct96_win25.parquet
-    Skipping existing: adm2_length15_pct96_win30.parquet
-    Skipping existing: adm2_length15_pct97_win10.parquet
-    Skipping existing: adm2_length15_pct97_win15.parquet
-    Skipping existing: adm2_length15_pct97_win20.parquet
-    Skipping existing: adm2_length15_pct97_win25.parquet
-    Skipping existing: adm2_length15_pct97_win30.parquet
-    Skipping existing: adm2_length15_pct98_win10.parquet
-    Skipping existing: adm2_length15_pct98_win15.parquet
-    Skipping existing: adm2_length15_pct98_win20.parquet
-    Skipping existing: adm2_length15_pct98_win25.parquet
-    
-
-    Grid Search:  77%|███████▋  | 116/150 [00:01<00:00, 112.23it/s]
-
-    Skipping existing: adm2_length15_pct98_win30.parquet
-    Skipping existing: adm2_length15_pct99_win10.parquet
-    Skipping existing: adm2_length15_pct99_win15.parquet
-    
-
-    Grid Search:  85%|████████▌ | 128/150 [00:01<00:00, 111.21it/s]
-
-    Skipping existing: adm2_length15_pct99_win20.parquet
-    Skipping existing: adm2_length15_pct99_win25.parquet
-    Skipping existing: adm2_length15_pct99_win30.parquet
-    Skipping existing: adm2_length30_pct95_win10.parquet
-    Skipping existing: adm2_length30_pct95_win15.parquet
-    Skipping existing: adm2_length30_pct95_win20.parquet
-    Skipping existing: adm2_length30_pct95_win25.parquet
-    Skipping existing: adm2_length30_pct95_win30.parquet
-    Skipping existing: adm2_length30_pct96_win10.parquet
-    Skipping existing: adm2_length30_pct96_win15.parquet
-    Skipping existing: adm2_length30_pct96_win20.parquet
-    Skipping existing: adm2_length30_pct96_win25.parquet
-    Skipping existing: adm2_length30_pct96_win30.parquet
-    Skipping existing: adm2_length30_pct97_win10.parquet
-    Skipping existing: adm2_length30_pct97_win15.parquet
-    Skipping existing: adm2_length30_pct97_win20.parquet
-    
-
-    Grid Search:  93%|█████████▎| 140/150 [00:01<00:00, 103.90it/s]
-
-    Skipping existing: adm2_length30_pct97_win25.parquet
-    Skipping existing: adm2_length30_pct97_win30.parquet
-    
-
-    Grid Search: 100%|██████████| 150/150 [00:01<00:00, 104.84it/s]
-
-    Skipping existing: adm2_length30_pct98_win10.parquet
-    Skipping existing: adm2_length30_pct98_win15.parquet
-    Skipping existing: adm2_length30_pct98_win20.parquet
-    Skipping existing: adm2_length30_pct98_win25.parquet
-    Skipping existing: adm2_length30_pct98_win30.parquet
-    Skipping existing: adm2_length30_pct99_win10.parquet
-    Skipping existing: adm2_length30_pct99_win15.parquet
-    Skipping existing: adm2_length30_pct99_win20.parquet
-    Skipping existing: adm2_length30_pct99_win25.parquet
-    Skipping existing: adm2_length30_pct99_win30.parquet
-    
-    Completed! Results saved in: grid_search_results/
-    
-
-    
-    
-
-## Model Selection: Bayesian Information Criterion (BIC)
-
-### Why BIC?
-
-BIC (Schwarz, 1978) provides a principled framework for model selection by penalizing
-both **poor fit** and **excessive complexity**:
+We use BIC (Bayesian Information Criterion) to penalize both **poor fit** and **excessive complexity**:
 
 $$
-BIC = \underbrace{k \cdot \ln(n)}_{\text{Complexity Penalty}} + \underbrace{n \cdot \ln\left(\frac{SS_W}{n}\right)}_{\text{Fit Term (negative log-likelihood)}}
+BIC = k \cdot \ln(n) + n \cdot \ln\left(\frac{SS_W}{n}\right)
 $$
 
-**Lower BIC** indicates better trade-off between fit and complexity. 
+**Lower BIC is better.** 
 
-Remark. In cases of perfect within-run homogeneity (SS_W ≈ 0), a variance floor of 10^-10 is applied to ensure numerical stability.
+### Components
 
-### How BIC Addresses Our Objective
+- **$k$** = Number of valid runs (≥ $L_{\min}$ days)
+  - Measures model complexity; larger $k$ increases penalty
+  
+- **$n$** = Total days across all valid runs
+  $$n = \sum_{i=1}^{k} |R_i|$$
+  
+- **$SS_W$** = Within-run sum of squares
+  $$SS_W = \sum_{i=1}^{k} \sum_{j \in R_i} \left(y(j) - \bar{y}_i\right)^2$$
+  - Lower $SS_W$ means stable probabilities within runs (good cohesion)
+  - Higher $SS_W$ means high variability (poor cohesion)
 
-| Objective | BIC Component | Mechanism |
-|-----------|---------------|-----------|
-| **Internal Cohesion** | $SS_W$ (Within-run variance) | Small $SS_W$ → homogeneous probability values within runs → more cohesive periods |
-| **Model Parsimony** | $k \cdot \ln(n)$ | Penalty increases with number of runs → discourages fragmentation |
-| **Structural Validity** | Pre-filtering ($L_{\min}$) | Only runs ≥ $L_{\min}$ days are considered valid |
+where $\bar{y}_i$ is the mean probability for run $i$, and $y(j)$ is the probability value for day $j$.
 
-### Notation and Components
-
-- $\mathcal{R} = \{R_1, R_2, \ldots, R_k\}$: Set of $k$ valid runs (length $\geq L_{\min}$)
-- $R_i$: The $i$-th run (set of day indices belonging to run $i$)
-- $|R_i|$: Number of days in run $R_i$
-- $y(x)$: Original continuous probability value for day $x$
-
-**$k$** = Number of valid runs (model complexity)
-- Interpretation: Number of distinct OOS periods identified
-- Larger $k$ → higher complexity penalty → BIC increases
-
-**$n$** = Total days across all valid runs (effective sample size)
-$$
-n = \sum_{i=1}^{k} |R_i|
-$$
-- Counts only days classified as OOS (not all 365 days)
-- Larger $n$ → more data supporting the model → stronger complexity penalty
-
-**$SS_W$** = Within-run sum of squares (measure of fit quality)
-$$
-SS_W = \sum_{i=1}^{k} \sum_{j \in R_i} \left(y(j) - \bar{y}_i\right)^2
-$$
-
-where $\bar{y}_i = \frac{1}{|R_i|} \sum_{j \in R_i} y(j)$ is the mean probability for run $i$.
-
-- **Lower $SS_W$**: Probability values are stable within each run → good internal cohesion → better fit
-- **Higher $SS_W$**: High variability within runs → poor cohesion → worse fit
-
-### Model Selection Procedure
-
-1. Generate candidate segmentations for all $(\theta, w)$ combinations
-2. Filter runs to keep only those with length $\geq L_{\min}$
-3. Compute BIC for each configuration
-4. **Select the configuration with minimum BIC**
-
-This identifies the segmentation that best captures genuine OOS periods without 
-over-fragmenting the time series.
-
+*Note: A variance floor of $10^{-10}$ is applied when $SS_W \approx 0$ for numerical stability.*
 
 ```python
 from utils.oos_validation import run_comprehensive_bic_analysis
@@ -344,930 +381,288 @@ from utils.oos_validation import run_comprehensive_bic_analysis
 run_comprehensive_bic_analysis()
 ```
 
-    Processing adm_level=0, length=15...
-    Found 25 parquet files
-    Combined DataFrame shape: (109800, 13)
-      ✗ Skipped: No parameter combinations with valid BIC for adm_level=0, length=15
-    
-    Processing adm_level=0, length=30...
-    Found 25 parquet files
-    Combined DataFrame shape: (109800, 13)
-      ✗ Skipped: No parameter combinations with valid BIC for adm_level=0, length=30
-    
-    Processing adm_level=1, length=15...
-    Found 25 parquet files
-    Combined DataFrame shape: (1674450, 13)
-      ✓ Best config: threshold=99%, window=10 days, BIC=-534.68
-    
-    Processing adm_level=1, length=30...
-    Found 25 parquet files
-    Combined DataFrame shape: (1674450, 13)
-      ✓ Best config: threshold=99%, window=10 days, BIC=-643.96
-    
-    Processing adm_level=2, length=15...
-    Found 25 parquet files
-    Combined DataFrame shape: (15481800, 13)
-      ✓ Best config: threshold=99%, window=10 days, BIC=-1726.71
-    
-    Processing adm_level=2, length=30...
-    Found 25 parquet files
-    Combined DataFrame shape: (15481800, 13)
-      ✓ Best config: threshold=99%, window=10 days, BIC=-1812.71
-    
-    
+OOS detection failed at the national level (**admin 0**). At such large geographic scales, national aggregation **masks local seasonal patterns**, making the probability of observing zero exposed population negligible. We therefore focus on **admin levels 1 and 2**.
 
+At these levels, all successful configurations converged on **threshold = 99%**, confirming that only days with very high probability should be classified as OOS. However, the optimal context window varies systematically. Two key patterns emerge:
 
+1. **Inverse relationship**: Longer minimum run lengths require shorter context windows (30d → smaller window), suggesting that longer runs are self-validating and need less temporal confirmation.
 
-
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>adm_level</th>
-      <th>length</th>
-      <th>percentage_threshold</th>
-      <th>context_window_days</th>
-      <th>avg_BIC</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>2</td>
-      <td>30</td>
-      <td>99</td>
-      <td>10</td>
-      <td>-1812.712999</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>2</td>
-      <td>15</td>
-      <td>99</td>
-      <td>10</td>
-      <td>-1726.711951</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>1</td>
-      <td>30</td>
-      <td>99</td>
-      <td>10</td>
-      <td>-643.956871</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>1</td>
-      <td>15</td>
-      <td>99</td>
-      <td>10</td>
-      <td>-534.683829</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
-
-
+2. **Mean-median divergence**: Given the substantial gap between mean and median BIC (e.g., -1813 vs -625 for admin 2), we examine the underlying distributions. This divergence signals outlier-driven behavior: certain regions achieve exceptionally low BIC values that pull the mean downward, while most regions perform differently. To understand this pattern, we analyze distribution characteristics (skewness, outlier frequency) and considering prioritizing **median BIC** as our selection criterion. The median represents typical cross-region performance, ensuring our parameter choices work consistently rather than exceptionally well for isolated cases.
 
 ```python
-from utils.oos_validation import analyze_bic_grid_search, get_bic_summary_stats, plot_bic_components, print_bic_analysis_report
+from utils.oos_validation import (
+    analyze_bic_grid_search,
+    plot_bic_components,
+)
 
-results = analyze_bic_grid_search(length=15, adm_level=2)
-
-display(results)
+# Collect all results
+results_dict = {}
+for adm_level in [1, 2]:
+    for length in [15, 30]:
+        results = analyze_bic_grid_search(
+            length=length,
+            adm_level=adm_level,
+            base_folder="grid_search_results",
+        )
+        results_dict[(adm_level, length)] = results
 ```
 
-    Found 25 parquet files
-    Combined DataFrame shape: (15481800, 13)
-    
-
-
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>iso3</th>
-      <th>pcode</th>
-      <th>adm_level</th>
-      <th>rolling_sum_days</th>
-      <th>context_window_days</th>
-      <th>percentage_threshold</th>
-      <th>min_oos_run_length</th>
-      <th>data</th>
-      <th>k</th>
-      <th>n</th>
-      <th>SS_W</th>
-      <th>BIC</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>BFA</td>
-      <td>BF1300</td>
-      <td>2</td>
-      <td>5</td>
-      <td>10</td>
-      <td>95</td>
-      <td>15</td>
-      <td>dev</td>
-      <td>2</td>
-      <td>235</td>
-      <td>197.358220</td>
-      <td>-30.103618</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>BFA</td>
-      <td>BF1300</td>
-      <td>2</td>
-      <td>5</td>
-      <td>10</td>
-      <td>96</td>
-      <td>15</td>
-      <td>dev</td>
-      <td>2</td>
-      <td>230</td>
-      <td>110.491026</td>
-      <td>-157.747192</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>BFA</td>
-      <td>BF1300</td>
-      <td>2</td>
-      <td>5</td>
-      <td>10</td>
-      <td>97</td>
-      <td>15</td>
-      <td>dev</td>
-      <td>2</td>
-      <td>224</td>
-      <td>48.114955</td>
-      <td>-333.700581</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>BFA</td>
-      <td>BF1300</td>
-      <td>2</td>
-      <td>5</td>
-      <td>10</td>
-      <td>98</td>
-      <td>15</td>
-      <td>dev</td>
-      <td>2</td>
-      <td>220</td>
-      <td>26.476082</td>
-      <td>-455.037615</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>BFA</td>
-      <td>BF1300</td>
-      <td>2</td>
-      <td>5</td>
-      <td>10</td>
-      <td>99</td>
-      <td>15</td>
-      <td>dev</td>
-      <td>2</td>
-      <td>214</td>
-      <td>15.377892</td>
-      <td>-552.739710</td>
-    </tr>
-    <tr>
-      <th>...</th>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-    </tr>
-    <tr>
-      <th>42295</th>
-      <td>TCD</td>
-      <td>TD2303</td>
-      <td>2</td>
-      <td>5</td>
-      <td>30</td>
-      <td>95</td>
-      <td>15</td>
-      <td>dev</td>
-      <td>1</td>
-      <td>366</td>
-      <td>577.353758</td>
-      <td>172.733428</td>
-    </tr>
-    <tr>
-      <th>42296</th>
-      <td>TCD</td>
-      <td>TD2303</td>
-      <td>2</td>
-      <td>5</td>
-      <td>30</td>
-      <td>96</td>
-      <td>15</td>
-      <td>dev</td>
-      <td>1</td>
-      <td>366</td>
-      <td>577.353758</td>
-      <td>172.733428</td>
-    </tr>
-    <tr>
-      <th>42297</th>
-      <td>TCD</td>
-      <td>TD2303</td>
-      <td>2</td>
-      <td>5</td>
-      <td>30</td>
-      <td>97</td>
-      <td>15</td>
-      <td>dev</td>
-      <td>2</td>
-      <td>320</td>
-      <td>109.345176</td>
-      <td>-332.082995</td>
-    </tr>
-    <tr>
-      <th>42298</th>
-      <td>TCD</td>
-      <td>TD2303</td>
-      <td>2</td>
-      <td>5</td>
-      <td>30</td>
-      <td>98</td>
-      <td>15</td>
-      <td>dev</td>
-      <td>2</td>
-      <td>306</td>
-      <td>34.539169</td>
-      <td>-656.089104</td>
-    </tr>
-    <tr>
-      <th>42299</th>
-      <td>TCD</td>
-      <td>TD2303</td>
-      <td>2</td>
-      <td>5</td>
-      <td>30</td>
-      <td>99</td>
-      <td>15</td>
-      <td>dev</td>
-      <td>2</td>
-      <td>292</td>
-      <td>5.575837</td>
-      <td>-1144.473395</td>
-    </tr>
-  </tbody>
-</table>
-<p>42300 rows × 12 columns</p>
-</div>
-
-
-
 ```python
-plot_bic_components(results, length=15, admin_level=2, save_plot=False)
+from utils.oos_validation import create_compact_bic_figure
+
+create_compact_bic_figure(results_dict, save_plot=False)
 ```
 
+## Discussion
 
-    
-![png](OOS_validation_files/OOS_validation_5_0.png)
-    
+Mean and median BIC diverge clearly (Panel A). Points **above** the diagonal show that mean BIC is more negative than the median, indicating **outlier-driven distributions**: a few regions achieve exceptionally low BIC values that pull the mean downward without reflecting typical behavior. The median therefore provides a more representative performance measure.
 
+Median-based selection reveals a clear **inverse relationship** between run length and window size (Panel B): longer runs (30 days) pair with shorter windows (20d for Admin 1, 10d for Admin 2), while shorter runs (15 days) require wider windows (25d, 15d). This is intuitive—stable OOS periods need less temporal context, whereas shorter periods are more ambiguous and benefit from broader confirmation. Admin Level 2 consistently favors shorter windows, indicating that finer spatial resolution yields clearer local patterns requiring less smoothing.
+
+Sensitivity analysis (Panel C) shows that median BIC (solid lines) varies moderately across window choices, while mean BIC (dashed lines) swings much more, reinforcing the decision to prioritize the median. The relatively flat median curves—especially for Admin Level 2—suggest that window choice matters less when local structures are already distinct.
+
+**Final selection** therefore uses `min_length = 30` days, because (1) median BIC is consistently better at this threshold and (2) longer runs provide greater **specificity**, filtering out transient fluctuations and preserving only substantial OOS periods suitable for operational decisions.
+
+Accordingly, we select:
+
+* **Admin Level 1:** 99% threshold, **20-day** context window, **30-day** run length
+* **Admin Level 2:** 99% threshold, **10-day** context window, **30-day** run length
 
 
 ```python
-print_bic_analysis_report(results, adm_level=2, length=15)
+plot_bic_components(
+    results_dict[(2, 30)], length=30, admin_level=2, save_plot=False
+)
 ```
 
-    ======================================================================
-    BEST CONFIGURATION (Minimum BIC across all pcodes)
-    ======================================================================
-    Pcode: CD5210
-    Percentage Threshold: 95%
-    Context Window: 10 days
-    Number of runs (k): 1
-    Total OOS days (n): 366
-    Within-run variance (SS_W): 0.0000
-    BIC: -8421.56
-    
-    ======================================================================
-    BEST CONFIGURATION PER PCODE (Top 10)
-    ======================================================================
-        pcode  percentage_threshold  context_window_days  k    n          BIC
-    0  BF1300                    99                   15  2  202  -612.680916
-    1  BF4601                    99                   25  2   97  -363.452577
-    2  BF4602                    99                   10  2   93  -309.415148
-    3  BF4603                    99                   20  3   51  -249.101778
-    4  BF4604                    99                   15  2   86  -195.389302
-    5  BF4605                    99                   10  2  214 -1085.573979
-    6  BF4606                    97                   30  2   82   -98.358213
-    7  BF4702                    99                   30  2   84  -294.175622
-    8  BF4801                    99                   10  3  143  -426.595501
-    9  BF4802                    99                   25  1   74  -318.952537
-    
-    ======================================================================
-    MOST COMMON BEST PARAMETERS
-    ======================================================================
-    
-    Most common threshold:
-    percentage_threshold
-    99    994
-    98    220
-    97    111
-    95    104
-    96     93
-    Name: count, dtype: int64
-    
-    Most common window:
-    context_window_days
-    10    585
-    30    393
-    25    205
-    15    193
-    20    146
-    Name: count, dtype: int64
-    
-    Most common combination:
-    percentage_threshold  context_window_days
-    99                    10                     475
-                          30                     154
-                          15                     140
-                          25                     133
-                          20                      92
-    dtype: int64
-    
-    ======================================================================
-    AVERAGE BIC BY PARAMETER COMBINATION
-    ======================================================================
-                                                  avg_BIC
-    percentage_threshold context_window_days             
-    99                   10                  -1726.711951
-                         15                  -1706.217849
-                         20                  -1572.786838
-                         30                  -1375.023603
-    98                   10                  -1356.523137
-    99                   25                  -1355.997504
-    98                   30                  -1163.854701
-                         25                  -1134.670998
-                         20                  -1127.054629
-                         15                  -1107.509960
-    97                   30                  -1026.503957
-                         25                   -997.528035
-                         20                   -982.475788
-                         15                   -977.201110
-                         10                   -939.417183
-    96                   30                   -918.860020
-                         25                   -892.312708
-                         20                   -876.776347
-                         15                   -858.787819
-                         10                   -856.092410
-    95                   30                   -815.134211
-                         25                   -799.504399
-                         20                   -790.215133
-                         15                   -775.523033
-                         10                   -741.667771
-    
-    Best average configuration:
-      Admin Level: 2
-      Length: 15
-      Threshold: 99%
-      Window: 10 days
-      Avg BIC: -1726.71
-    
-    ======================================================================
-    SUMMARY STATISTICS BY PARAMETER COMBINATION
-    ======================================================================
-                                                 k             n            SS_W  \
-                                              mean   std    mean     std    mean   
-    percentage_threshold context_window_days                                       
-    95                   10                   1.87  0.88  252.79  107.00  220.18   
-                         15                   1.72  0.75  252.52  107.34  205.51   
-                         20                   1.65  0.69  253.41  107.47  211.86   
-                         25                   1.57  0.63  252.68  108.98  221.32   
-                         30                   1.51  0.59  253.18  109.33  224.53   
-    96                   10                   1.92  0.90  244.91  108.04  135.82   
-                         15                   1.73  0.74  245.50  108.79  136.11   
-                         20                   1.65  0.66  246.11  108.88  134.80   
-                         25                   1.60  0.63  245.91  109.50  133.29   
-                         30                   1.54  0.59  245.20  110.61  128.76   
-    97                   10                   1.95  0.92  235.52  109.51   83.95   
-                         15                   1.80  0.79  235.54  110.25   77.04   
-                         20                   1.69  0.70  236.71  110.25   76.09   
-                         25                   1.62  0.65  235.94  111.21   73.30   
-                         30                   1.57  0.60  237.46  110.96   72.79   
-    98                   10                   2.03  0.96  221.92  109.71   37.20   
-                         15                   1.84  0.82  221.35  110.55   33.60   
-                         20                   1.71  0.70  223.06  111.36   34.36   
-                         25                   1.65  0.65  223.85  111.13   33.18   
-                         30                   1.61  0.63  223.42  112.18   31.44   
-    99                   10                   2.10  1.02  200.83  108.86    9.60   
-                         15                   1.93  0.88  199.45  109.35    8.23   
-                         20                   1.77  0.78  202.27  110.79    9.27   
-                         25                   1.73  0.77  200.44  110.49    7.73   
-                         30                   1.64  0.67  201.31  111.59    8.04   
-    
-                                                          BIC           
-                                                 std     mean      std  
-    percentage_threshold context_window_days                            
-    95                   10                   168.94  -741.67  2294.62  
-                         15                   165.58  -775.52  2300.83  
-                         20                   181.19  -790.22  2313.76  
-                         25                   202.73  -799.50  2321.95  
-                         30                   210.00  -815.13  2334.67  
-    96                   10                   109.70  -856.09  2285.66  
-                         15                   111.62  -858.79  2294.53  
-                         20                   114.37  -876.78  2307.02  
-                         25                   114.02  -892.31  2318.67  
-                         30                   117.34  -918.86  2328.84  
-    97                   10                    67.72  -939.42  2279.30  
-                         15                    64.71  -977.20  2285.92  
-                         20                    64.28  -982.48  2302.79  
-                         25                    62.35  -997.53  2312.89  
-                         30                    65.86 -1026.50  2332.89  
-    98                   10                    32.60 -1356.52  2512.89  
-                         15                    28.26 -1107.51  2285.10  
-                         20                    29.94 -1127.05  2300.37  
-                         25                    28.26 -1134.67  2323.08  
-                         30                    28.63 -1163.85  2338.17  
-    99                   10                    10.37 -1726.71  2626.78  
-                         15                     7.69 -1706.22  2599.53  
-                         20                     9.20 -1572.79  2501.31  
-                         25                     7.11 -1356.00  2352.29  
-                         30                     7.81 -1375.02  2372.14  
-    
-
+## Old visualization (without OOS detection)
 
 ```python
-get_bic_summary_stats(results)
+# These are preprocessed boundaries that take the CODAB shapefiles and simplify and convert to
+# geoJSON format so that they're more suitable for web visualization.
+import json
+import plotly.express as px
+
+from utils.data_utils import get_current_quantiles
+
+load_dotenv()
+
+ADM_LEVEL = 2
+engine = stratus.get_engine("prod")
+
+with open(f"assets/geo/adm{ADM_LEVEL}.json", "r") as file:
+    data = json.load(file)
+
+# Gets latest data on the quantile assignment of the latest flood exposure values (factoring in a rolling window)
+# This is updated in a separate pipeline here:
+# https://github.com/OCHA-DAP/ds-floodexposure-monitoring/blob/main/pipelines/update_exposure_quantile.py
+df_quantile = get_current_quantiles(ADM_LEVEL)
+
+# This plotting code is different than what's in the app, but it doesn't really matter
+fig = px.choropleth_map(
+    df_quantile,
+    geojson=data,
+    locations="pcode",
+    color="quantile",
+    featureidkey="properties.pcode",
+    color_continuous_scale=[
+        "#fafafa",
+        "#e0e0e0",
+        "#b8b8b8",
+        "#f7a29c",
+        "#da5a51",
+    ],
+    zoom=3,
+)
+
+fig
 ```
 
-
-
-
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead tr th {
-        text-align: left;
-    }
-
-    .dataframe thead tr:last-of-type th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr>
-      <th></th>
-      <th></th>
-      <th colspan="2" halign="left">k</th>
-      <th colspan="2" halign="left">n</th>
-      <th colspan="2" halign="left">SS_W</th>
-      <th colspan="2" halign="left">BIC</th>
-    </tr>
-    <tr>
-      <th></th>
-      <th></th>
-      <th>mean</th>
-      <th>std</th>
-      <th>mean</th>
-      <th>std</th>
-      <th>mean</th>
-      <th>std</th>
-      <th>mean</th>
-      <th>std</th>
-    </tr>
-    <tr>
-      <th>percentage_threshold</th>
-      <th>context_window_days</th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th rowspan="5" valign="top">95</th>
-      <th>10</th>
-      <td>1.87</td>
-      <td>0.88</td>
-      <td>252.79</td>
-      <td>107.00</td>
-      <td>220.18</td>
-      <td>168.94</td>
-      <td>-741.67</td>
-      <td>2294.62</td>
-    </tr>
-    <tr>
-      <th>15</th>
-      <td>1.72</td>
-      <td>0.75</td>
-      <td>252.52</td>
-      <td>107.34</td>
-      <td>205.51</td>
-      <td>165.58</td>
-      <td>-775.52</td>
-      <td>2300.83</td>
-    </tr>
-    <tr>
-      <th>20</th>
-      <td>1.65</td>
-      <td>0.69</td>
-      <td>253.41</td>
-      <td>107.47</td>
-      <td>211.86</td>
-      <td>181.19</td>
-      <td>-790.22</td>
-      <td>2313.76</td>
-    </tr>
-    <tr>
-      <th>25</th>
-      <td>1.57</td>
-      <td>0.63</td>
-      <td>252.68</td>
-      <td>108.98</td>
-      <td>221.32</td>
-      <td>202.73</td>
-      <td>-799.50</td>
-      <td>2321.95</td>
-    </tr>
-    <tr>
-      <th>30</th>
-      <td>1.51</td>
-      <td>0.59</td>
-      <td>253.18</td>
-      <td>109.33</td>
-      <td>224.53</td>
-      <td>210.00</td>
-      <td>-815.13</td>
-      <td>2334.67</td>
-    </tr>
-    <tr>
-      <th rowspan="5" valign="top">96</th>
-      <th>10</th>
-      <td>1.92</td>
-      <td>0.90</td>
-      <td>244.91</td>
-      <td>108.04</td>
-      <td>135.82</td>
-      <td>109.70</td>
-      <td>-856.09</td>
-      <td>2285.66</td>
-    </tr>
-    <tr>
-      <th>15</th>
-      <td>1.73</td>
-      <td>0.74</td>
-      <td>245.50</td>
-      <td>108.79</td>
-      <td>136.11</td>
-      <td>111.62</td>
-      <td>-858.79</td>
-      <td>2294.53</td>
-    </tr>
-    <tr>
-      <th>20</th>
-      <td>1.65</td>
-      <td>0.66</td>
-      <td>246.11</td>
-      <td>108.88</td>
-      <td>134.80</td>
-      <td>114.37</td>
-      <td>-876.78</td>
-      <td>2307.02</td>
-    </tr>
-    <tr>
-      <th>25</th>
-      <td>1.60</td>
-      <td>0.63</td>
-      <td>245.91</td>
-      <td>109.50</td>
-      <td>133.29</td>
-      <td>114.02</td>
-      <td>-892.31</td>
-      <td>2318.67</td>
-    </tr>
-    <tr>
-      <th>30</th>
-      <td>1.54</td>
-      <td>0.59</td>
-      <td>245.20</td>
-      <td>110.61</td>
-      <td>128.76</td>
-      <td>117.34</td>
-      <td>-918.86</td>
-      <td>2328.84</td>
-    </tr>
-    <tr>
-      <th rowspan="5" valign="top">97</th>
-      <th>10</th>
-      <td>1.95</td>
-      <td>0.92</td>
-      <td>235.52</td>
-      <td>109.51</td>
-      <td>83.95</td>
-      <td>67.72</td>
-      <td>-939.42</td>
-      <td>2279.30</td>
-    </tr>
-    <tr>
-      <th>15</th>
-      <td>1.80</td>
-      <td>0.79</td>
-      <td>235.54</td>
-      <td>110.25</td>
-      <td>77.04</td>
-      <td>64.71</td>
-      <td>-977.20</td>
-      <td>2285.92</td>
-    </tr>
-    <tr>
-      <th>20</th>
-      <td>1.69</td>
-      <td>0.70</td>
-      <td>236.71</td>
-      <td>110.25</td>
-      <td>76.09</td>
-      <td>64.28</td>
-      <td>-982.48</td>
-      <td>2302.79</td>
-    </tr>
-    <tr>
-      <th>25</th>
-      <td>1.62</td>
-      <td>0.65</td>
-      <td>235.94</td>
-      <td>111.21</td>
-      <td>73.30</td>
-      <td>62.35</td>
-      <td>-997.53</td>
-      <td>2312.89</td>
-    </tr>
-    <tr>
-      <th>30</th>
-      <td>1.57</td>
-      <td>0.60</td>
-      <td>237.46</td>
-      <td>110.96</td>
-      <td>72.79</td>
-      <td>65.86</td>
-      <td>-1026.50</td>
-      <td>2332.89</td>
-    </tr>
-    <tr>
-      <th rowspan="5" valign="top">98</th>
-      <th>10</th>
-      <td>2.03</td>
-      <td>0.96</td>
-      <td>221.92</td>
-      <td>109.71</td>
-      <td>37.20</td>
-      <td>32.60</td>
-      <td>-1356.52</td>
-      <td>2512.89</td>
-    </tr>
-    <tr>
-      <th>15</th>
-      <td>1.84</td>
-      <td>0.82</td>
-      <td>221.35</td>
-      <td>110.55</td>
-      <td>33.60</td>
-      <td>28.26</td>
-      <td>-1107.51</td>
-      <td>2285.10</td>
-    </tr>
-    <tr>
-      <th>20</th>
-      <td>1.71</td>
-      <td>0.70</td>
-      <td>223.06</td>
-      <td>111.36</td>
-      <td>34.36</td>
-      <td>29.94</td>
-      <td>-1127.05</td>
-      <td>2300.37</td>
-    </tr>
-    <tr>
-      <th>25</th>
-      <td>1.65</td>
-      <td>0.65</td>
-      <td>223.85</td>
-      <td>111.13</td>
-      <td>33.18</td>
-      <td>28.26</td>
-      <td>-1134.67</td>
-      <td>2323.08</td>
-    </tr>
-    <tr>
-      <th>30</th>
-      <td>1.61</td>
-      <td>0.63</td>
-      <td>223.42</td>
-      <td>112.18</td>
-      <td>31.44</td>
-      <td>28.63</td>
-      <td>-1163.85</td>
-      <td>2338.17</td>
-    </tr>
-    <tr>
-      <th rowspan="5" valign="top">99</th>
-      <th>10</th>
-      <td>2.10</td>
-      <td>1.02</td>
-      <td>200.83</td>
-      <td>108.86</td>
-      <td>9.60</td>
-      <td>10.37</td>
-      <td>-1726.71</td>
-      <td>2626.78</td>
-    </tr>
-    <tr>
-      <th>15</th>
-      <td>1.93</td>
-      <td>0.88</td>
-      <td>199.45</td>
-      <td>109.35</td>
-      <td>8.23</td>
-      <td>7.69</td>
-      <td>-1706.22</td>
-      <td>2599.53</td>
-    </tr>
-    <tr>
-      <th>20</th>
-      <td>1.77</td>
-      <td>0.78</td>
-      <td>202.27</td>
-      <td>110.79</td>
-      <td>9.27</td>
-      <td>9.20</td>
-      <td>-1572.79</td>
-      <td>2501.31</td>
-    </tr>
-    <tr>
-      <th>25</th>
-      <td>1.73</td>
-      <td>0.77</td>
-      <td>200.44</td>
-      <td>110.49</td>
-      <td>7.73</td>
-      <td>7.11</td>
-      <td>-1356.00</td>
-      <td>2352.29</td>
-    </tr>
-    <tr>
-      <th>30</th>
-      <td>1.64</td>
-      <td>0.67</td>
-      <td>201.31</td>
-      <td>111.59</td>
-      <td>8.04</td>
-      <td>7.81</td>
-      <td>-1375.02</td>
-      <td>2372.14</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
-
-
+## New visualization (Out of Season Detection)
 
 ```python
-selected = results.loc[(results['percentage_threshold'] == 99) & 
-            (results['context_window_days'] == 10) &
-            (results['k'] > 0)]
+# These are preprocessed boundaries that take the CODAB shapefiles and simplify and convert to
+# geoJSON format so that they're more suitable for web visualization.
+
+with open(f"assets/geo/adm{ADM_LEVEL}.json", "r") as file:
+    data = json.load(file)
+
+oos_days = pd.read_parquet(
+    f"./grid_search_results/adm{ADM_LEVEL}/length15/adm2_length15_pct99_win10.parquet"
+)
+
+# Gets latest data on the quantile assignment of the latest flood exposure values (factoring in a rolling window)
+# This is updated in a separate pipeline here:
+# https://github.com/OCHA-DAP/ds-floodexposure-monitoring/blob/main/pipelines/update_exposure_quantile.py
+df_quantile = get_current_quantiles(ADM_LEVEL)
+
+oos_days_f = oos_days.loc[
+    oos_days["month_day"]
+    == str(df_quantile["valid_date"].unique().strftime("%m-%d")[0])
+]
+
+df_quantile = df_quantile.merge(
+    oos_days_f[["pcode", "is_out_of_season"]], on="pcode"
+)
+
+df_quantile.loc[df_quantile["is_out_of_season"] == True, "quantile"] = -3
+
+# This plotting code is different than what's in the app, but it doesn't really matter
+fig = px.choropleth_map(
+    df_quantile,
+    geojson=data,
+    locations="pcode",
+    color="quantile",
+    featureidkey="properties.pcode",
+    color_continuous_scale=[
+        "#90caf9",  # OUT OF SEASON
+        "#fafafa",
+        "#e0e0e0",
+        "#b8b8b8",
+        "#f7a29c",
+        "#da5a51",
+    ],
+    zoom=3,
+)
+
+fig
 ```
 
+Let's calculate spatial autocorrelation for this day.
 
 ```python
-# 1. Visualize distribution
-import matplotlib.pyplot as plt
+from libpysal.weights import Queen
+from esda import Moran, Join_Counts
+import geopandas as gpd
 
-plt.figure(figsize=(12, 5))
+# ============================================================================
+# SPATIAL AUTOCORRELATION ANALYSIS FOR ONE RANDOM DAY
+# ============================================================================
 
-plt.subplot(1, 2, 1)
-selected['BIC'].hist(bins=30, edgecolor='black')
-plt.axvline(selected['BIC'].mean(), color='red', linestyle='--', label='Mean')
-plt.axvline(selected['BIC'].median(), color='green', linestyle='--', label='Median')
-plt.xlabel('BIC')
-plt.ylabel('Frequency')
-plt.title('BIC Distribution')
-plt.legend()
+results_all = []
 
-plt.subplot(1, 2, 2)
-selected.boxplot(column='BIC')
-plt.ylabel('BIC')
-plt.title('BIC Boxplot')
+for adm in [1, 2]:
+    # Load data
+    gdf = gpd.read_file(f"assets/geo/adm{adm}.json")
+    oos_days = pd.read_parquet(
+        f'./grid_search_results/adm{adm}/length30/adm{adm}_length30_pct99_win{"20" if adm==1 else "10"}.parquet'
+    )
+    df_quantile = get_current_quantiles(adm)
+    oos_days_f = oos_days.loc[
+        oos_days["month_day"]
+        == str(df_quantile["valid_date"].unique().strftime("%m-%d")[0])
+    ]
+    df_quantile = df_quantile.merge(
+        oos_days_f[["pcode", "is_out_of_season"]], on="pcode"
+    )
+    gdf = gdf.merge(df_quantile[["pcode", "is_out_of_season"]], on="pcode")
 
-plt.tight_layout()
+    # Spatial weights
+    w = Queen.from_dataframe(gdf, use_index=True, silence_warnings=True)
+    w.transform = "r"
+
+    # Remove islands
+    islands = w.islands
+    gdf_conn = gdf[~gdf.index.isin(islands)].copy()
+    w_conn = Queen.from_dataframe(
+        gdf_conn, use_index=True, silence_warnings=True
+    )
+    w_conn.transform = "r"
+
+    # Calculate statistics
+    gdf_conn["is_oos_binary"] = gdf_conn["is_out_of_season"].astype(int)
+    moran = Moran(gdf_conn["is_oos_binary"], w_conn)
+    jc = Join_Counts(gdf_conn["is_oos_binary"], w_conn)
+
+    results_all.append(
+        {
+            "admin_level": adm,
+            "n_pcodes": len(gdf_conn),
+            "n_islands": len(islands),
+            "moran_i": moran.I,
+            "p_value": moran.p_sim,
+            "z_score": moran.z_sim,
+            "bb_joins": jc.bb,
+            "bb_expected": jc.mean_bb,
+            "bb_excess_pct": ((jc.bb - jc.mean_bb) / jc.mean_bb) * 100,
+        }
+    )
+
+df_stats = pd.DataFrame(results_all)
+df_stats
+```
+
+```python
+# ============================================================================
+# VISUALIZATION
+# ============================================================================
+
+fig = plt.figure(figsize=(18, 6))
+gs = fig.add_gridspec(1, 2, wspace=0.3)
+
+colors = {1: "#2E86AB", 2: "#A23B72"}
+
+# Panel 1: Maps
+ax1 = fig.add_subplot(gs[0, 0])
+ax2 = fig.add_subplot(gs[0, 1])
+
+for idx, (ax, adm) in enumerate([(ax1, 1), (ax2, 2)]):
+    gdf = gpd.read_file(f"assets/geo/adm{adm}.json")
+    oos_days = pd.read_parquet(
+        f'./grid_search_results/adm{adm}/length30/adm{adm}_length30_pct99_win{"20" if adm==1 else "10"}.parquet'
+    )
+    df_quantile = get_current_quantiles(adm)
+    oos_days_f = oos_days.loc[
+        oos_days["month_day"]
+        == str(df_quantile["valid_date"].unique().strftime("%m-%d")[0])
+    ]
+    df_quantile = df_quantile.merge(
+        oos_days_f[["pcode", "is_out_of_season"]], on="pcode"
+    )
+    gdf = gdf.merge(df_quantile[["pcode", "is_out_of_season"]], on="pcode")
+
+    gdf.plot(
+        column="is_out_of_season",
+        categorical=True,
+        ax=ax,
+        cmap="RdYlGn_r",
+        edgecolor="black",
+        linewidth=0.3,
+        legend=False,
+    )
+
+    moran_val = df_stats[df_stats["admin_level"] == adm]["moran_i"].values[0]
+    pval = df_stats[df_stats["admin_level"] == adm]["p_value"].values[0]
+
+    ax.set_title(
+        f"Admin Level {adm}\nMoran's I = {moran_val:.3f} (p={pval:.4f})",
+        fontsize=11,
+        fontweight="bold",
+    )
+    ax.axis("off")
+
+# Add legend manually
+from matplotlib.patches import Patch
+import matplotlib.colors as mcolors
+
+cmap = plt.cm.RdYlGn_r
+legend_elements = [
+    Patch(facecolor=cmap(1.0), edgecolor="black", label="Out of Season"),
+    Patch(facecolor=cmap(0.0), edgecolor="black", label="In Season"),
+]
+
+fig.legend(
+    handles=legend_elements,
+    loc="lower center",
+    ncol=2,
+    fontsize=11,
+    frameon=True,
+    bbox_to_anchor=(0.5, -0.02),
+)
+
+fig.suptitle(
+    "Spatial Clustering of OOS Regions", fontsize=14, fontweight="bold"
+)
+
 plt.show()
-
-# 2. Outliers
-print("\n" + "="*70)
-print("EXTREME VALUES ANALYSIS")
-print("="*70)
-
-# Worst (most negative = best fit)
-worst_5 = selected.nsmallest(5, 'BIC')
-print("\nTop 5 BEST configurations (most negative BIC):")
-print(worst_5[['pcode', 'percentage_threshold', 'context_window_days', 'k', 'n', 'BIC']])
-
-# Check if outliers are concentrated in few pcodes
-print(f"\nPcodes with extreme BIC: {worst_5['pcode'].unique()}")
-
-# 3. Ovefitting check...
-print("\n" + "="*70)
-print("OVERFITTING CHECK")
-print("="*70)
-extreme_configs = selected[selected['BIC'] < selected['BIC'].quantile(0.1)]
-print(f"\nConfigs with BIC < 10th percentile (n={len(extreme_configs)}):")
-print(extreme_configs[['k', 'n']].describe())
 ```
-
-
-    
-![png](OOS_validation_files/OOS_validation_9_0.png)
-    
-
-
-    
-    ======================================================================
-    EXTREME VALUES ANALYSIS
-    ======================================================================
-    
-    Top 5 BEST configurations (most negative BIC):
-           pcode  percentage_threshold  context_window_days  k    n          BIC
-    3129  CD5210                    99                   10  1  366 -8421.558807
-    3154  CD5301                    99                   10  1  366 -8421.558807
-    3429  CD5404                    99                   10  1  366 -8421.558807
-    3529  CD5410                    99                   10  1  366 -8421.558807
-    3729  CD6109                    99                   10  1  366 -8421.558807
-    
-    Pcodes with extreme BIC: ['CD5210' 'CD5301' 'CD5404' 'CD5410' 'CD6109']
-    
-    ======================================================================
-    OVERFITTING CHECK
-    ======================================================================
-    
-    Configs with BIC < 10th percentile (n=137):
-                    k           n
-    count  137.000000  137.000000
-    mean     1.065693  362.773723
-    std      0.248655    9.825681
-    min      1.000000  323.000000
-    25%      1.000000  366.000000
-    50%      1.000000  366.000000
-    75%      1.000000  366.000000
-    max      2.000000  366.000000
-    
