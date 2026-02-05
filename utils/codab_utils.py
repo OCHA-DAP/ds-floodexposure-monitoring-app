@@ -2,6 +2,8 @@ from typing import Literal
 
 import ocha_stratus as stratus
 
+from constants import STAGE
+
 PROJECT_PREFIX = "ds-floodexposure-monitoring"
 
 
@@ -29,6 +31,6 @@ def load_codab_from_blob(iso3: str, admin_level: int = 0):
     gdf = stratus.load_shp_from_blob(
         blob_name=get_blob_name(iso3),
         shapefile=shapefile,
-        stage="dev",
+        stage=STAGE,
     )
     return gdf

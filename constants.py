@@ -19,6 +19,7 @@ ISO3S = [
     "cod",
     "moz",
     "mwi",
+    "mdg",
 ]
 ADM_LEVELS = [0, 1, 2]
 
