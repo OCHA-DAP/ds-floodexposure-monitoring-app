@@ -164,8 +164,8 @@ def map_container():
                 id="hover-place-name",
                 style={
                     "position": "absolute",
-                    "top": "50px",
-                    "right": "20px",
+                    "bottom": "20px",
+                    "left": "10px",
                     "zIndex": 999,
                 },
             ),
