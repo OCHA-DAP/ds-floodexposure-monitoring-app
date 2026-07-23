@@ -3,7 +3,7 @@ import dash_leaflet as dl
 import dash_mantine_components as dmc
 from dash import dcc, html
 
-from constants import ATTRIBUTION, ROLLING_WINDOW, URL
+from constants import ATTRIBUTION, MAP_CENTER, MAP_ZOOM, ROLLING_WINDOW, URL
 
 NAVBAR_HEIGHT = 60 + 48
 GUTTER = 0
@@ -33,7 +33,7 @@ def content():
                             dbc.Col(map_container()),
                             style={
                                 "backgroundColor": "white",
-                                "height": f"calc(100% - {400 + GUTTER * 3}px)",
+                                "height": f"calc(100% - {315 + GUTTER * 3}px)",
                                 "border": "1px solid #dbdbdb",
                                 "minHeight": "300px",
                                 "marginTop": f"{GUTTER}px",
@@ -140,8 +140,8 @@ def map_container():
             dl.Map(
                 [dl.TileLayer(url=URL, attribution=ATTRIBUTION)],
                 style={"width": "100%", "height": "100%"},
-                center=[0, 22],
-                zoom=3,
+                center=MAP_CENTER,
+                zoom=MAP_ZOOM,
                 id="map",
             ),
             dmc.Select(
@@ -151,7 +151,6 @@ def map_container():
                     {"value": "0", "label": "Admin 0"},
                     {"value": "1", "label": "Admin 1"},
                     {"value": "2", "label": "Admin 2"},
-                    {"value": "region", "label": "Regions"},
                 ],
                 style={
                     "width": 130,
@@ -215,14 +214,6 @@ def chart_container():
             children=chart_card(
                 "Daily population exposed to flooding",
                 chart_id="exposure-chart",
-            ),
-            style={"height": charts_height, "marginBottom": "15px"},
-        ),
-        dbc.Col(
-            width=12,
-            children=chart_card(
-                "Return period of annual maximum flood exposure to date",
-                chart_id="rp-chart",
             ),
             style={"height": charts_height, "marginBottom": "15px"},
         ),

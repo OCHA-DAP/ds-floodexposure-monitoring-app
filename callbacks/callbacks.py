@@ -1,4 +1,5 @@
 import json
+from urllib.parse import parse_qs
 
 import dash_leaflet as dl
 import dash_leaflet.express as dlx
@@ -8,7 +9,7 @@ from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
 
 from constants import ATTRIBUTION, URL, URL_LABELS
-from utils.chart_utils import create_return_period_plot, create_timeseries_plot
+from utils.chart_utils import create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
     fetch_flood_data,
@@ -19,6 +20,13 @@ from utils.data_utils import (
 from utils.log_utils import get_logger
 
 logger = get_logger("callbacks")
+
+
+def pcode_from_search(search):
+    """Extract the selected pcode from a URL query string, if present."""
+    params = parse_qs((search or "").lstrip("?"))
+    return params.get("pcode", [""])[0]
+
 
 style_handle = assign(
     """
@@ -76,8 +84,20 @@ def register_callbacks(app):
             hideout["selected"] = name
         return feature["properties"], hideout
 
-    @app.callback(Output("map", "children"), Input("adm-level", "value"))
-    def set_adm_value(adm_level):
+    @app.callback(
+        Output("map", "children"),
+        Input("adm-level", "value"),
+        State("selected-data", "data"),
+        State("url", "search"),
+    )
+    def set_adm_value(adm_level, selected_data, search):
+        # Prefer the live selection; on a fresh load from a shared link
+        # selected-data is still empty, so fall back to the URL pcode.
+        selected_pcode = (
+            selected_data.get("pcode", "")
+            if selected_data
+            else pcode_from_search(search)
+        )
         with open(f"assets/geo/adm{adm_level}.json", "r") as file:
             data = json.load(file)
 
@@ -128,7 +148,7 @@ def register_callbacks(app):
                 colorscale=colorscale,
                 style=style,
                 colorProp="quantile",
-                selected="",
+                selected=selected_pcode,
             ),
             hoverStyle=arrow_function(
                 {"fillOpacity": 1, "weight": 1, "color": "black"}
@@ -156,20 +176,15 @@ def register_callbacks(app):
 
     @app.callback(
         Output("exposure-chart", "children"),
-        Output("rp-chart", "children"),
         Output("place-name", "children"),
         Output("num-exposed", "children"),
         Output("exposure-chart-title", "children"),
-        Output("rp-chart-title", "children"),
         Input("selected-data", "data"),
         State("adm-level", "value"),
         prevent_initial_call=False,
     )
     def update_plot(selected_data, adm_level):
         exposed_plot_title = "Daily population exposed to flooding"
-        rp_plot_title = (
-            "Return period of annual maximum flood exposure to date"
-        )
 
         if not selected_data:
             blank_children = [
@@ -183,10 +198,8 @@ def register_callbacks(app):
             ]
             return (
                 blank_children,
-                blank_children,
                 dmc.Center("No location selected"),
                 "",
-                no_update,
                 no_update,
             )
 
@@ -205,10 +218,8 @@ def register_callbacks(app):
             ]
             return (
                 empty_children,
-                empty_children,
                 dmc.Center("No data available"),
                 "",
-                no_update,
                 no_update,
             )
 
@@ -216,26 +227,22 @@ def register_callbacks(app):
         df_processed, df_seasonal, df_peaks = process_flood_data(df_exposure)
         df_peaks, peak_years = calculate_return_periods(df_peaks)
 
-        # Create plots
+        # Create plot
         fig_timeseries = create_timeseries_plot(
             df_seasonal, df_processed, peak_years
         )
-        fig_rp = create_return_period_plot(df_peaks)
 
         exposure_chart = dcc.Graph(
             config={"displayModeBar": False}, figure=fig_timeseries
         )
-        rp_chart = dcc.Graph(config={"displayModeBar": False}, figure=fig_rp)
         name, exposed_summary = get_summary(
             df_processed, df_adm, adm_level, quantile
         )
         return (
             exposure_chart,
-            rp_chart,
             name,
             exposed_summary,
             f"{exposed_plot_title}: {name}",
-            f"{rp_plot_title}: {name}",
         )
 
     @app.callback(
@@ -244,3 +251,49 @@ def register_callbacks(app):
     def info_hover(feature):
         if feature:
             return feature["properties"]["name"]
+
+    @app.callback(
+        Output("url", "search"),
+        Input("selected-data", "data"),
+        State("adm-level", "value"),
+        prevent_initial_call=True,
+    )
+    def update_url(selected_data, adm_level):
+        """Persist the current selection to the URL query string so the
+        view can be shared and restored."""
+        if not selected_data or not selected_data.get("pcode"):
+            return ""
+        return f"?adm={adm_level}&pcode={selected_data['pcode']}"
+
+    @app.callback(
+        Output("adm-level", "value"),
+        Output("selected-data", "data", allow_duplicate=True),
+        Input("url", "search"),
+        State("selected-data", "data"),
+        prevent_initial_call="initial_duplicate",
+    )
+    def restore_from_url(search, current_data):
+        """On load (or when the query string changes), restore the admin
+        level and selected pcode encoded in the URL."""
+        params = parse_qs((search or "").lstrip("?"))
+        pcode = params.get("pcode", [""])[0]
+        adm_level = params.get("adm", [None])[0]
+
+        if not pcode:
+            return no_update, no_update
+
+        # Break the write -> read feedback loop: if the URL already
+        # matches the current selection, there is nothing to restore.
+        if current_data and current_data.get("pcode") == pcode:
+            return no_update, no_update
+
+        adm_out = adm_level if adm_level in ("0", "1", "2") else no_update
+
+        # Look up the quantile for the pcode so the summary can render.
+        df_quantile = get_current_quantiles(adm_level)
+        row = df_quantile[df_quantile["pcode"] == pcode]
+        if row.empty or pd.isna(row.iloc[0]["quantile"]):
+            return adm_out, no_update
+
+        quantile = int(row.iloc[0]["quantile"])
+        return adm_out, {"pcode": pcode, "quantile": quantile}

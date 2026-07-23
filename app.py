@@ -10,12 +10,13 @@ from utils.log_utils import setup_logging
 
 app = Dash(__name__, update_title=None, suppress_callback_exceptions=True)
 server = app.server
-app.title = "Flood Exposure"
+app.title = "Sudan Flood Exposure"
 
 logger = setup_logging()
 
 register_callbacks(app)
 layout = [
+    dcc.Location(id="url", refresh=False),
     disclaimer_modal(),
     navbar(),
     module_bar(),

@@ -6,23 +6,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+# This app is scoped to Sudan only.
 ISO3S = [
-    "ner",
-    "nga",
-    "cmr",
-    "tcd",
-    "bfa",
-    "eth",
-    "ssd",
-    "som",
-    "mli",
-    "cod",
-    "moz",
-    "mwi",
-    "mdg",
     "sdn",
 ]
 ADM_LEVELS = [0, 1, 2]
+
+# Map view centered on Sudan
+MAP_CENTER = [15.9, 30.2]
+MAP_ZOOM = 5
 
 ROLLING_WINDOW = int(os.getenv("ROLL_WINDOW", 7))
 
@@ -37,6 +29,7 @@ iso3_to_pcode = {
     "som": "SO",
     "mli": "ML",
     "cod": "CD",
+    "sdn": "SD",
 }
 
 pcode_to_iso3 = {
@@ -50,6 +43,7 @@ pcode_to_iso3 = {
     "SO": "som",
     "ML": "mli",
     "CD": "cod",
+    "SD": "sdn",
 }
 
 # specific pcodes for building regions
@@ -85,6 +79,7 @@ REGIONS = [
 ]
 
 CHD_GREEN = "#1bb580"
+OCHA_BLUE = "#0072BC"
 CHD_BLUE = "#007ce0"
 CHD_LIGHTBLUE = "#66b0ec"
 CHD_GREY = "#888888"

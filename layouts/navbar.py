@@ -1,7 +1,7 @@
 import dash_bootstrap_components as dbc
 from dash import html
 
-from constants import CHD_GREEN, NAVBAR_HEIGHT
+from constants import NAVBAR_HEIGHT, OCHA_BLUE
 
 
 def navbar():
@@ -43,14 +43,14 @@ def navbar():
             "margin": "0px",
             "padding": "10px",
         },
-        color=CHD_GREEN,
+        color=OCHA_BLUE,
         dark=True,
     )
 
 
 def module_bar():
     return html.Div(
-        "Flood Exposure Module",
+        "Sudan Flood Exposure Module",
         style={
             "backgroundColor": "#353535",
             "color": "white",
