@@ -155,7 +155,7 @@ def map_container():
                 style={
                     "width": 130,
                     "position": "absolute",
-                    "top": "10px",
+                    "top": "17px",
                     "right": "20px",
                     "zIndex": 999,
                 },

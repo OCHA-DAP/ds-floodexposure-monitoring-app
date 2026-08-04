@@ -169,7 +169,7 @@ def register_callbacks(app):
             ],
             style={
                 "position": "absolute",
-                "top": "54px",
+                "top": "10px",
                 "right": "20px",
                 "width": "130px",
                 "boxSizing": "border-box",
@@ -192,9 +192,7 @@ def register_callbacks(app):
                 colorProp="quantile",
                 selected=selected_pcode,
             ),
-            hoverStyle=arrow_function(
-                {"fillOpacity": 1, "weight": 1, "color": "black"}
-            ),
+            hoverStyle=arrow_function({"weight": 2, "color": "#666666"}),
             zoomToBounds=False,
         )
         adm0 = dl.GeoJSON(
