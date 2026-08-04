@@ -7,7 +7,7 @@ import pandas as pd
 from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
 
-from constants import ATTRIBUTION, URL, URL_LABELS
+from constants import ATTRIBUTION, COLORSCALE, URL, URL_LABELS
 from utils.chart_utils import create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
@@ -110,76 +110,6 @@ def register_callbacks(app):
         for feature, quantile in zip(data["features"], df_joined["quantile"]):
             feature["properties"]["quantile"] = quantile
 
-        colorscale = ["#fafafa", "#e0e0e0", "#b8b8b8", "#f7a29c", "#da5a51"]
-        legend_categories = [
-            "Well below normal",
-            "Below normal",
-            "Normal",
-            "Above normal",
-            "Well above normal",
-        ]
-        legend = html.Div(
-            [
-                html.Div(
-                    f"Exposed population on {df_quantile.valid_date.max():%b %d} is...",  # noqa
-                    style={
-                        "fontSize": "12px",
-                        "fontWeight": "bold",
-                        "marginBottom": "5px",
-                    },
-                ),
-                # Stacked color swatches with category labels
-                html.Div(
-                    [
-                        html.Div(
-                            [
-                                html.Div(
-                                    style={
-                                        "width": "14px",
-                                        "height": "14px",
-                                        "backgroundColor": color,
-                                        "border": "1px solid #dbdbdb",
-                                        "flexShrink": "0",
-                                    }
-                                ),
-                                html.Div(
-                                    category,
-                                    style={
-                                        "fontSize": "10px",
-                                        "lineHeight": "1.1",
-                                    },
-                                ),
-                            ],
-                            style={
-                                "display": "flex",
-                                "alignItems": "center",
-                                "gap": "5px",
-                            },
-                        )
-                        for color, category in zip(
-                            colorscale, legend_categories
-                        )
-                    ],
-                    style={
-                        "display": "flex",
-                        "flexDirection": "column",
-                        "gap": "3px",
-                    },
-                ),
-            ],
-            style={
-                "position": "absolute",
-                "top": "10px",
-                "right": "20px",
-                "width": "130px",
-                "boxSizing": "border-box",
-                "zIndex": 1000,
-                "padding": "10px",
-                "backgroundColor": "rgba(255, 255, 255, 0.8)",
-                "borderRadius": "5px",
-            },
-        )
-
         style = dict(weight=1, opacity=1, color="white", fillOpacity=0.75)
 
         geojson = dl.GeoJSON(
@@ -187,7 +117,7 @@ def register_callbacks(app):
             id="geojson",
             style=style_handle,
             hideout=dict(
-                colorscale=colorscale,
+                colorscale=COLORSCALE,
                 style=style,
                 colorProp="quantile",
                 selected=selected_pcode,
@@ -210,7 +140,6 @@ def register_callbacks(app):
                 name="tile",
                 style={"zIndex": 1002},
             ),
-            legend,
         ]
 
     @app.callback(

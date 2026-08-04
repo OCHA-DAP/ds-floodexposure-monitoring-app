@@ -3,7 +3,15 @@ import dash_leaflet as dl
 import dash_mantine_components as dmc
 from dash import dcc, html
 
-from constants import ATTRIBUTION, MAP_CENTER, MAP_ZOOM, ROLLING_WINDOW, URL
+from constants import (
+    ATTRIBUTION,
+    COLORSCALE,
+    LEGEND_CATEGORIES,
+    MAP_CENTER,
+    MAP_ZOOM,
+    ROLLING_WINDOW,
+    URL,
+)
 
 NAVBAR_HEIGHT = 60 + 48
 GUTTER = 0
@@ -133,6 +141,68 @@ def info_container():
     )
 
 
+def legend():
+    return html.Div(
+        [
+            html.Div(
+                "Exposed population is...",
+                style={
+                    "fontSize": "12px",
+                    "fontWeight": "bold",
+                    "marginBottom": "5px",
+                },
+            ),
+            # Stacked color swatches with category labels
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Div(
+                                style={
+                                    "width": "14px",
+                                    "height": "14px",
+                                    "backgroundColor": color,
+                                    "border": "1px solid #dbdbdb",
+                                    "flexShrink": "0",
+                                }
+                            ),
+                            html.Div(
+                                category,
+                                style={
+                                    "fontSize": "10px",
+                                    "lineHeight": "1.1",
+                                },
+                            ),
+                        ],
+                        style={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": "5px",
+                        },
+                    )
+                    for color, category in zip(COLORSCALE, LEGEND_CATEGORIES)
+                ],
+                style={
+                    "display": "flex",
+                    "flexDirection": "column",
+                    "gap": "3px",
+                },
+            ),
+        ],
+        style={
+            "position": "absolute",
+            "top": "10px",
+            "right": "20px",
+            "width": "130px",
+            "boxSizing": "border-box",
+            "zIndex": 1000,
+            "padding": "10px",
+            "backgroundColor": "rgba(255, 255, 255, 0.8)",
+            "borderRadius": "5px",
+        },
+    )
+
+
 def map_container():
     return html.Div(
         id="map-container",
@@ -144,6 +214,7 @@ def map_container():
                 zoom=MAP_ZOOM,
                 id="map",
             ),
+            legend(),
             dmc.Select(
                 id="adm-level",
                 value="1",
@@ -155,7 +226,7 @@ def map_container():
                 style={
                     "width": 130,
                     "position": "absolute",
-                    "top": "17px",
+                    "top": "170px",
                     "right": "20px",
                     "zIndex": 999,
                 },

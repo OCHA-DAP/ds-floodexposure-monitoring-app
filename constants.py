@@ -78,6 +78,15 @@ REGIONS = [
     },
 ]
 
+COLORSCALE = ["#fafafa", "#e0e0e0", "#b8b8b8", "#f7a29c", "#da5a51"]
+LEGEND_CATEGORIES = [
+    "Well below normal",
+    "Below normal",
+    "Normal",
+    "Above normal",
+    "Well above normal",
+]
+
 CHD_GREEN = "#1bb580"
 OCHA_BLUE = "#0072BC"
 CHD_BLUE = "#007ce0"
