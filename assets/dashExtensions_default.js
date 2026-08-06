@@ -42,7 +42,9 @@ window.dashExtensions = Object.assign({}, window.dashExtensions, {
             layerGroup.addLayer(points);
             window._pointsLayer = points;
             window.LOCATIONS_POINT_COLOR = "#0072BC";
+            window._allowedSiteTypes = window._allowedSiteTypes || ["POP_3 - Secondary Town", "POP_2 - Primary Town", "POP_4 - Administrative Centre", "POP_1 - Admin1 Capital", "POP_0 - National Capital"];
             window.attachPointsHoverTooltip(layerGroup._map);
+            window.rebuildPointsLayer(window._allowedSiteTypes);
         }
 
     }

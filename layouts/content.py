@@ -305,7 +305,7 @@ def legend():
             dmc.Select(
                 id="adm-level",
                 label="Admin level",
-                value="1",
+                value="2",
                 data=[
                     {"value": "0", "label": "Admin 0"},
                     {"value": "1", "label": "Admin 1"},

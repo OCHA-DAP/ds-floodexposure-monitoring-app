@@ -72,13 +72,28 @@ LOCATIONS_PANE = "locations"
 # Only ever holds markers for whatever's in the current viewport - never
 # all ~12k points at once - via window.rebuildPointsLayer
 # (assets/heatmap.js), which is what actually populates
-# window._pointsLayer on demand. This handler just sets up the
-# (initially empty) layer once, when its wrapping LayerGroup mounts.
-# The point color is threaded in from OCHA_BLUE the same way other
-# Python-sourced constants are, rather than hardcoding a second copy in
-# the static heatmap.js file. attachPointsHoverTooltip (also in
-# heatmap.js) is idempotent - safe to call on every mount even though
-# it only actually wires up once.
+# window._pointsLayer on demand. This handler sets up the layer when
+# its wrapping LayerGroup mounts (which happens on every page load and
+# every admin-level change, since set_adm_value rebuilds "map"'s
+# children each time) and immediately populates it - it must NOT wait
+# for the toggle clientside_callback below to fire, since that callback
+# only re-runs on a checkbox change or a map pan/zoom. If this handler
+# only set window._pointsLayer without populating it, a mount that
+# happens to land between callback firings would leave the layer empty
+# until the user next panned/zoomed or toggled a checkbox - exactly the
+# "points don't show until I move the map" bug this replaced.
+# The point color and the default-checked site types are threaded in
+# from Python the same way other Python-sourced constants are, rather
+# than hardcoding a second copy in the static heatmap.js file.
+# window._allowedSiteTypes is the single source of truth for which
+# types are currently checked, kept in sync by the toggle
+# clientside_callback below whenever a checkbox changes - it's only
+# seeded here (with the compile-time defaults from SITE_TYPES) the
+# first time, via `||=`, so a later remount (e.g. from an admin-level
+# change, which rebuilds this LayerGroup) reuses whatever the user has
+# actually selected rather than resetting back to the defaults.
+# attachPointsHoverTooltip (also in heatmap.js) is idempotent - safe to
+# call on every mount even though it only actually wires up once.
 points_layer_handler = assign(
     """
     function(e, ctx) {
@@ -87,10 +102,21 @@ points_layer_handler = assign(
         layerGroup.addLayer(points);
         window._pointsLayer = points;
         window.LOCATIONS_POINT_COLOR = "%s";
+        window._allowedSiteTypes = window._allowedSiteTypes || %s;
         window.attachPointsHoverTooltip(layerGroup._map);
+        window.rebuildPointsLayer(window._allowedSiteTypes);
     }
 """
-    % OCHA_BLUE
+    % (
+        OCHA_BLUE,
+        json.dumps(
+            [
+                site_type
+                for site_type, _, default_checked, _ in SITE_TYPES
+                if default_checked
+            ]
+        ),
+    )
 )
 
 
@@ -135,12 +161,8 @@ def register_callbacks(app):
         function(bounds, ...typeChecked) {
             const siteTypes = [%s];
             const allowedTypes = siteTypes.filter((_, i) => typeChecked[i]);
-
-            if (bounds) {
-                window.rebuildPointsLayer(bounds, allowedTypes);
-            } else if (window._pointsLayer) {
-                window._pointsLayer.clearLayers();
-            }
+            window._allowedSiteTypes = allowedTypes;
+            window.rebuildPointsLayer(allowedTypes);
             return "";
         }
         """

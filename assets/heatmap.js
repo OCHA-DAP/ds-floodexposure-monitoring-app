@@ -109,17 +109,36 @@ window.attachPointsHoverTooltip = function (map) {
 };
 
 // Rebuilds window._pointsLayer's contents from scratch, keeping only
-// the points that fall inside `bounds` ([[south, west], [north, east]],
-// the shape dash-leaflet's Map "bounds" prop is serialized as) AND
-// whose site_type is in `allowedTypes`. Never constructs markers for
-// the full ~12k-point dataset at once - only for whatever's actually
-// in view and checked.
-window.rebuildPointsLayer = function (bounds, allowedTypes) {
+// the points currently within the map's own live bounds AND whose
+// site_type is in `allowedTypes`. Never constructs markers for the
+// full ~12k-point dataset at once - only for whatever's actually in
+// view and checked.
+//
+// Bounds are read directly from the map (map.getBounds()) rather than
+// taking a `bounds` argument sourced from dash-leaflet's "bounds"
+// prop - that prop only gets populated after the first moveend fires,
+// so on a fresh page load (before any pan/zoom has ever happened) it's
+// undefined, and points would never show until the map was manually
+// moved once. The live map object always has real bounds immediately.
+window.rebuildPointsLayer = function (allowedTypes) {
     const layer = window._pointsLayer;
     if (!layer) return;
+    const map = layer._map;
+    if (!map) return;
+
+    // Detach from the map while rebuilding, then reattach once at the
+    // end. Leaflet only touches the DOM for layers actually attached
+    // to the map - each marker.addTo(layer) below would otherwise
+    // trigger its own synchronous position calc + SVG <path> insertion
+    // immediately, since layer is already live. Clearing and
+    // repopulating while detached turns what would be hundreds of
+    // individual DOM operations into a single one on reattach - this
+    // is the main cost for however many hundred points end up
+    // matching, not the plain array scan over all ~12k below it.
+    map.removeLayer(layer);
     layer.clearLayers();
 
-    const latLngBounds = L.latLngBounds(bounds);
+    const latLngBounds = map.getBounds();
     const allowed = new Set(allowedTypes || []);
     window.getLocationsData().then((features) => {
         // If the points layer got torn down/rebuilt while this
@@ -188,5 +207,6 @@ window.rebuildPointsLayer = function (bounds, allowedTypes) {
             );
             marker.addTo(layer);
         });
+        map.addLayer(layer);
     });
 };
