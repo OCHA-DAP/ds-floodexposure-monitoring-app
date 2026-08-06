@@ -1,14 +1,41 @@
 import time
+from functools import lru_cache
 
 import ocha_stratus as stratus
 import pandas as pd
 from dash import dcc
 from sqlalchemy import text
 
-from constants import CUR_YEAR, ROLLING_WINDOW, STAGE
+from constants import CUR_YEAR, LOCATIONS_BLOB_NAME, ROLLING_WINDOW, STAGE
 from utils.log_utils import get_logger
 
 logger = get_logger("data")
+
+
+@lru_cache(maxsize=1)
+def get_locations_geojson():
+    """Build a GeoJSON FeatureCollection from the preprocessed locations
+    Parquet file on Azure Blob Storage (see prepare_locations_data.py -
+    coordinate cleanup/filtering and rounding already happened there).
+
+    Cached since the source data is static for the app's lifetime.
+    """
+    df = stratus.load_parquet_from_blob(LOCATIONS_BLOB_NAME, stage=STAGE)
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [row.lon, row.lat],
+            },
+            "properties": {
+                "name": row.name,
+                "site_type": row.site_type,
+            },
+        }
+        for row in df.itertuples()
+    ]
+    return {"type": "FeatureCollection", "features": features}
 
 
 def fetch_flood_data(pcode, adm_level):

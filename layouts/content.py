@@ -9,6 +9,7 @@ from constants import (
     LEGEND_CATEGORIES,
     MAP_CENTER,
     MAP_ZOOM,
+    OCHA_BLUE,
     ROLLING_WINDOW,
     URL,
 )
@@ -18,49 +19,66 @@ GUTTER = 0
 
 
 def content():
-    return dbc.Container(
-        dbc.Row(
-            [
-                # ---- Side info bar ----
-                dbc.Col(
-                    width=2,
-                    className="g-0",
-                    children=info_container(),
-                ),
-                # ---- Map / chart column ----
-                dbc.Col(
-                    width=10,
-                    style={
-                        "backgroundColor": "#f5f5f5",
-                        "height": f"calc(100vh - {NAVBAR_HEIGHT}px)",
-                        "overflowY": "scroll",
-                    },
-                    children=[
-                        # -- Map --
-                        dbc.Row(
-                            dbc.Col(map_container()),
-                            style={
-                                "backgroundColor": "white",
-                                "height": f"calc(100% - {315 + GUTTER * 3}px)",
-                                "border": "1px solid #dbdbdb",
-                                "minHeight": "300px",
-                                "marginTop": f"{GUTTER}px",
-                            },
-                            className="g-0",
-                        ),
-                        # -- Chart --
-                        dbc.Row(chart_container(), className="g-0"),
-                    ],
-                    className="g-0",
-                ),
-            ],
-            style={"backgroundColor": "#f5f5f5"},
+    return dcc.Loading(
+        dbc.Container(
+            dbc.Row(
+                [
+                    # ---- Side info bar ----
+                    dbc.Col(
+                        width=2,
+                        className="g-0",
+                        children=info_container(),
+                    ),
+                    # ---- Map / chart column ----
+                    dbc.Col(
+                        width=10,
+                        style={
+                            "backgroundColor": "#f5f5f5",
+                            "height": f"calc(100vh - {NAVBAR_HEIGHT}px)",
+                            "overflowY": "scroll",
+                        },
+                        children=[
+                            # -- Map --
+                            dbc.Row(
+                                dbc.Col(map_container()),
+                                style={
+                                    "backgroundColor": "white",
+                                    "height": f"calc(100% - {315 + GUTTER * 3}px)",  # noqa
+                                    "border": "1px solid #dbdbdb",
+                                    "minHeight": "300px",
+                                    "marginTop": f"{GUTTER}px",
+                                },
+                                className="g-0",
+                            ),
+                            # -- Chart --
+                            dbc.Row(chart_container(), className="g-0"),
+                        ],
+                        className="g-0",
+                    ),
+                ],
+                style={"backgroundColor": "#f5f5f5"},
+            ),
+            style={
+                "backgroundColor": "red",
+                "height": f"calc(100vh - {NAVBAR_HEIGHT + GUTTER}px)",
+            },
+            fluid=True,
         ),
-        style={
-            "backgroundColor": "red",
-            "height": f"calc(100vh - {NAVBAR_HEIGHT + GUTTER}px)",
+        # Only these Outputs (the slow, data-fetching callbacks) should
+        # trigger the full-page overlay - hover/click callbacks are
+        # near-instant and shouldn't block the page.
+        target_components={
+            "map": "children",
+            "exposure-chart": "children",
+            "place-name": "children",
+            "num-exposed": "children",
+            "exposure-chart-title": "children",
         },
-        fluid=True,
+        overlay_style={
+            "visibility": "visible",
+            "backgroundColor": "rgba(255, 255, 255, 0.6)",
+        },
+        style={"height": "100%"},
     )
 
 
@@ -188,14 +206,23 @@ def legend():
                     "gap": "3px",
                 },
             ),
+            html.Div(
+                style={
+                    "borderTop": "1px solid #dbdbdb",
+                    "margin": "8px 0",
+                }
+            ),
+            dmc.Checkbox(
+                id="locations-toggle",
+                label="Populated places",
+                checked=True,
+                size="xs",
+                color=OCHA_BLUE,
+            ),
         ],
         style={
-            "position": "absolute",
-            "top": "10px",
-            "right": "20px",
             "width": "130px",
             "boxSizing": "border-box",
-            "zIndex": 1000,
             "padding": "10px",
             "backgroundColor": "rgba(255, 255, 255, 0.8)",
             "borderRadius": "5px",
@@ -214,21 +241,34 @@ def map_container():
                 zoom=MAP_ZOOM,
                 id="map",
             ),
-            legend(),
-            dmc.Select(
-                id="adm-level",
-                value="1",
-                data=[
-                    {"value": "0", "label": "Admin 0"},
-                    {"value": "1", "label": "Admin 1"},
-                    {"value": "2", "label": "Admin 2"},
+            # legend() and the admin-level selector stack inside one
+            # positioned wrapper (rather than each being independently
+            # absolutely-positioned with a hardcoded "top" offset) so
+            # they can't overlap - the legend's height changes as its
+            # content does, and a fixed pixel offset for whatever comes
+            # after it silently breaks every time that happens.
+            html.Div(
+                [
+                    legend(),
+                    dmc.Select(
+                        id="adm-level",
+                        value="1",
+                        data=[
+                            {"value": "0", "label": "Admin 0"},
+                            {"value": "1", "label": "Admin 1"},
+                            {"value": "2", "label": "Admin 2"},
+                        ],
+                        style={"width": 130},
+                    ),
                 ],
                 style={
-                    "width": 130,
                     "position": "absolute",
-                    "top": "170px",
+                    "top": "10px",
                     "right": "20px",
-                    "zIndex": 999,
+                    "zIndex": 1000,
+                    "display": "flex",
+                    "flexDirection": "column",
+                    "gap": "10px",
                 },
             ),
             dmc.Text(
@@ -240,6 +280,10 @@ def map_container():
                     "zIndex": 999,
                 },
             ),
+            # Unused output target for the locations-toggle clientside
+            # callback, which flips heatmap canvas visibility directly
+            # and has no real UI element to update.
+            html.Div(id="heatmap-visibility-dummy", style={"display": "none"}),
         ],
         style={"width": "100%", "height": "100%", "position": "relative"},
     )

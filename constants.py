@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+PROJECT_PREFIX = "ds-floodexposure-monitoring"
+
 # This app is scoped to Sudan only.
 ISO3S = [
     "sdn",
@@ -104,3 +106,12 @@ URL_LABELS = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/
 CUR_YEAR = datetime.today().year
 
 STAGE = os.getenv("STAGE")
+
+LOCATIONS_BLOB_NAME = (
+    f"{PROJECT_PREFIX}/processed/locations/sudan_locations.parquet"
+)
+
+# Map zoom level at/above which the locations layer switches from a
+# heatmap to individual hoverable points. Not visually tuned - a
+# starting guess given MAP_ZOOM=5 is the country-wide default.
+HEATMAP_ZOOM_THRESHOLD = 9

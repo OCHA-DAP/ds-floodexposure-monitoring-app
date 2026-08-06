@@ -7,7 +7,16 @@ import pandas as pd
 from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
 
-from constants import ATTRIBUTION, COLORSCALE, URL, URL_LABELS
+from constants import (
+    ATTRIBUTION,
+    CHD_BLUE,
+    CHD_LIGHTBLUE,
+    COLORSCALE,
+    HEATMAP_ZOOM_THRESHOLD,
+    OCHA_BLUE,
+    URL,
+    URL_LABELS,
+)
 from utils.chart_utils import create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
@@ -59,6 +68,83 @@ style_handle = assign(
 """
 )
 
+LOCATIONS_PANE = "locations"
+
+# dash-leaflet has no built-in heatmap component, so this loads the
+# Leaflet.heat plugin (which registers itself on the global `L`) on
+# demand and builds the layer by hand once the wrapping LayerGroup
+# mounts. The plugin is loaded here - rather than via Dash's
+# external_scripts, which inject <script> tags into <head> with no
+# guaranteed ordering against dash-leaflet's own bundle - so it can't
+# race `window.L` being defined. Leaflet.heat always renders into
+# Leaflet's built-in overlayPane rather than a custom `pane` option,
+# so that pane's z-index is bumped here to sit above our
+# admin/choropleth panes (which otherwise top out at 1000) instead of
+# adding a second competing "locations" pane concept.
+heat_layer_handler = assign(
+    """
+    function(e, ctx) {
+        const layerGroup = e.target;
+        const map = layerGroup._map;
+        const overlayPane = map.getPane("overlayPane");
+        if (overlayPane) overlayPane.style.zIndex = 1001;
+
+        function buildHeatLayer() {
+            window.getLocationsData()
+                .then((features) => {
+                    const points = features.map(
+                        (f) => [f.geometry.coordinates[1], f.geometry.coordinates[0]]
+                    );
+                    const heat = L.heatLayer(points, {
+                        radius: 10,
+                        blur: 3,
+                        maxZoom: 12,
+                        minOpacity: 0.1,
+                        gradient: {0.3: "%s", 0.6: "%s", 1.0: "%s"},
+                    });
+                    layerGroup.addLayer(heat);
+                    window._heatLayer = heat;
+                })
+                .catch((err) => console.error("Heatmap layer failed:", err));
+        }
+
+        if (typeof L.heatLayer === "function") {
+            buildHeatLayer();
+        } else {
+            const script = document.createElement("script");
+            script.src = "https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js";
+            script.onload = buildHeatLayer;
+            script.onerror = () => console.error("Failed to load leaflet.heat plugin");
+            document.head.appendChild(script);
+        }
+    }
+"""
+    % (CHD_LIGHTBLUE, CHD_BLUE, OCHA_BLUE)
+)
+
+# Individual-points counterpart to the heat layer above, shown instead
+# of the heatmap once zoomed in past HEATMAP_ZOOM_THRESHOLD (see the
+# toggle clientside_callback in register_callbacks). Only ever holds
+# markers for whatever's in the current viewport - never all ~12k
+# points at once - via window.rebuildPointsLayer (assets/heatmap.js),
+# which is what actually populates window._pointsLayer on demand. This
+# handler just sets up the (initially empty) layer once, when its
+# wrapping LayerGroup mounts. The point color is threaded in from
+# OCHA_BLUE the same way the heat layer's gradient colors are above,
+# rather than hardcoding a second copy in the static heatmap.js file.
+points_layer_handler = assign(
+    """
+    function(e, ctx) {
+        const layerGroup = e.target;
+        const points = L.layerGroup();
+        layerGroup.addLayer(points);
+        window._pointsLayer = points;
+        window.LOCATIONS_POINT_COLOR = "%s";
+    }
+"""
+    % OCHA_BLUE
+)
+
 
 def register_callbacks(app):
     @app.callback(
@@ -82,6 +168,39 @@ def register_callbacks(app):
         else:
             hideout["selected"] = name
         return feature["properties"], hideout
+
+    # Below HEATMAP_ZOOM_THRESHOLD, the heat layer is shown (as before).
+    # At/above it, individual points are shown instead, rebuilt for
+    # just the current viewport from the cached fetch (see
+    # window.rebuildPointsLayer in assets/heatmap.js) rather than ever
+    # rendering all ~12k points at once. Both layers are always
+    # mounted - "showing"/"hiding" the heat layer is a CSS toggle on
+    # its one canvas element, and "hiding" the points layer is just
+    # clearing its (viewport-scoped, so already small) marker set.
+    app.clientside_callback(
+        """
+        function(checked, zoom, bounds) {
+            const threshold = %s;
+            const heat = window._heatLayer;
+            const showHeat = checked && zoom < threshold;
+            if (heat && heat._canvas) heat._canvas.style.display = showHeat ? "" : "none";
+
+            const showPoints = checked && zoom >= threshold;
+            if (showPoints && bounds) {
+                window.rebuildPointsLayer(bounds);
+            } else if (window._pointsLayer) {
+                window._pointsLayer.clearLayers();
+            }
+            return "";
+        }
+        """
+        % HEATMAP_ZOOM_THRESHOLD,
+        Output("heatmap-visibility-dummy", "children"),
+        Input("locations-toggle", "checked"),
+        Input("map", "zoom"),
+        Input("map", "bounds"),
+        prevent_initial_call=True,
+    )
 
     @app.callback(
         Output("map", "children"),
@@ -131,10 +250,32 @@ def register_callbacks(app):
             style={"color": "#353535", "weight": 1.5},
         )
 
+        # Both the heat layer and the points layer are always mounted -
+        # nothing here adds/removes them; the toggle/zoom
+        # clientside_callback above controls what's actually visible
+        # in each. That's simpler and more reliable than trying to
+        # add/remove the underlying Leaflet layers through
+        # dash-leaflet's React lifecycle on every toggle or zoom.
+        locations_children = [
+            dl.LayerGroup(
+                id="locations-heat",
+                eventHandlers=dict(add=heat_layer_handler),
+            ),
+            dl.LayerGroup(
+                id="locations-points",
+                eventHandlers=dict(add=points_layer_handler),
+            ),
+        ]
+
         return [
             dl.TileLayer(url=URL, attribution=ATTRIBUTION),
             dl.Pane(adm0, style={"zIndex": 1001}, name="adm0"),
             dl.Pane(geojson, style={"zIndex": 1000}, name="sel"),
+            dl.Pane(
+                locations_children,
+                style={"zIndex": 1001},
+                name=LOCATIONS_PANE,
+            ),
             dl.Pane(
                 dl.TileLayer(url=URL_LABELS, attribution=ATTRIBUTION),
                 name="tile",

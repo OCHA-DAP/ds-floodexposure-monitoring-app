@@ -2,9 +2,7 @@ from typing import Literal
 
 import ocha_stratus as stratus
 
-from constants import STAGE
-
-PROJECT_PREFIX = "ds-floodexposure-monitoring"
+from constants import PROJECT_PREFIX, STAGE
 
 
 def load_blob_data(

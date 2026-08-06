@@ -8,3 +8,11 @@
     accent-color: #1bb580ff;
     margin: 0.2rem;
 }
+
+/* The heat layer's canvas spans the full map viewport and, unlike
+   Leaflet's own SVG panes, isn't excluded from hit-testing by
+   Leaflet's default CSS - so without this it silently blocks clicks
+   on the choropleth underneath, even over empty/transparent areas. */
+.leaflet-heatmap-layer {
+    pointer-events: none;
+}
