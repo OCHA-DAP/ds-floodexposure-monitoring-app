@@ -12,7 +12,7 @@ isort==5.13.2
 pip-chill==1.0.3
 pre-commit==4.0.1
 psycopg2-binary==2.9.10
-pyarrow==19.0.0
+pyarrow==20.0.0
 python-dotenv==1.0.1
 sqlalchemy==2.0.36
 tomli==2.0.1
