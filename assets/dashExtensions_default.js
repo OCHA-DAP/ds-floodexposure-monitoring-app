@@ -37,68 +37,12 @@ window.dashExtensions = Object.assign({}, window.dashExtensions, {
 
             ,
         function1: function(e, ctx) {
-                const layerGroup = e.target;
-                const map = layerGroup._map;
-                const overlayPane = map.getPane("overlayPane");
-                if (overlayPane) overlayPane.style.zIndex = 1001;
-
-                function buildHeatLayer() {
-                    window.getLocationsData()
-                        .then((features) => {
-                            const points = features.map(
-                                (f) => [f.geometry.coordinates[1], f.geometry.coordinates[0]]
-                            );
-                            const heat = L.heatLayer(points, {
-                                radius: 10,
-                                blur: 3,
-                                maxZoom: 12,
-                                minOpacity: 0.1,
-                                gradient: {
-                                    0.3: "#66b0ec",
-                                    0.6: "#007ce0",
-                                    1.0: "#0072BC"
-                                },
-                            });
-                            layerGroup.addLayer(heat);
-                            window._heatLayer = heat;
-
-                            // The heat canvas otherwise always renders visible
-                            // once built - fetching+building it is async, so
-                            // it can finish well after the toggle callback's
-                            // one relevant firing already ran (and found no
-                            // canvas yet to hide). Reading the checkbox's live
-                            // DOM state here, at the moment the canvas is
-                            // actually created, is what makes an unchecked
-                            // default reliably stay hidden regardless of that
-                            // timing.
-                            const toggle = document.getElementById(
-                                "locations-toggle"
-                            );
-                            if (toggle && !toggle.checked) {
-                                heat._canvas.style.display = "none";
-                            }
-                        })
-                        .catch((err) => console.error("Heatmap layer failed:", err));
-                }
-
-                if (typeof L.heatLayer === "function") {
-                    buildHeatLayer();
-                } else {
-                    const script = document.createElement("script");
-                    script.src = "https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js";
-                    script.onload = buildHeatLayer;
-                    script.onerror = () => console.error("Failed to load leaflet.heat plugin");
-                    document.head.appendChild(script);
-                }
-            }
-
-            ,
-        function2: function(e, ctx) {
             const layerGroup = e.target;
             const points = L.layerGroup();
             layerGroup.addLayer(points);
             window._pointsLayer = points;
             window.LOCATIONS_POINT_COLOR = "#0072BC";
+            window.attachPointsHoverTooltip(layerGroup._map);
         }
 
     }

@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap");
+
 .loading_wrapper > div {
     visibility: visible !important;
 }
@@ -9,10 +11,9 @@
     margin: 0.2rem;
 }
 
-/* The heat layer's canvas spans the full map viewport and, unlike
-   Leaflet's own SVG panes, isn't excluded from hit-testing by
-   Leaflet's default CSS - so without this it silently blocks clicks
-   on the choropleth underneath, even over empty/transparent areas. */
-.leaflet-heatmap-layer {
-    pointer-events: none;
+/* Scoped to the point-hover tooltip specifically (see
+   attachPointsHoverTooltip in assets/heatmap.js), not applied
+   app-wide - the rest of the app uses its own bundled fonts. */
+.point-hover-tooltip {
+    font-family: "Roboto", sans-serif;
 }

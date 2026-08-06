@@ -11,7 +11,9 @@ from constants import (
     MAP_ZOOM,
     OCHA_BLUE,
     ROLLING_WINDOW,
+    SITE_TYPES,
     URL,
+    site_type_id,
 )
 
 NAVBAR_HEIGHT = 60 + 48
@@ -215,18 +217,12 @@ def legend():
             ),
             html.Div(
                 [
-                    dmc.Checkbox(
-                        id="locations-toggle",
-                        label="Populated places overlay",
-                        checked=False,
-                        size="xs",
-                        color=OCHA_BLUE,
-                        # size="xs" alone doesn't reliably match the
-                        # literal pixel sizes used elsewhere in this
-                        # panel (title, swatch labels) - overriding the
-                        # label directly keeps every piece of legend
-                        # text the same size.
-                        styles={"label": {"fontSize": LEGEND_FONT_SIZE}},
+                    html.Div(
+                        "Populated places",
+                        style={
+                            "fontSize": LEGEND_FONT_SIZE,
+                            "fontWeight": "bold",
+                        },
                     ),
                     dmc.Tooltip(
                         html.Span(
@@ -238,13 +234,13 @@ def legend():
                             },
                         ),
                         label=(
-                            "Populated places are sized by settlement "
-                            "type, smallest to largest: village, "
-                            "secondary town, primary town, "
-                            "administrative centre, admin1 capital, "
-                            "national capital. Zoom in to see exact "
-                            "points instead of the density heatmap. "
-                            "Data provided by the OCHA office in Sudan."
+                            "Populated places are colored by settlement "
+                            "type: village, secondary town, primary "
+                            "town, administrative centre, admin1 "
+                            "capital, national capital. Use the "
+                            "checkboxes below to choose which types are "
+                            "shown. Data provided by the OCHA office in "
+                            "Sudan."
                         ),
                         multiline=True,
                         width=220,
@@ -255,6 +251,49 @@ def legend():
                     "display": "flex",
                     "alignItems": "center",
                     "gap": "5px",
+                    "marginBottom": "5px",
+                },
+            ),
+            # No parent on/off checkbox - these directly control what's
+            # shown. If none are checked, nothing shows; that's the
+            # only "off" state, rather than a separate master toggle.
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Div(
+                                style={
+                                    "width": "10px",
+                                    "height": "10px",
+                                    "borderRadius": "50%",
+                                    "backgroundColor": color,
+                                    "border": "1px solid #dbdbdb",
+                                    "flexShrink": "0",
+                                }
+                            ),
+                            dmc.Checkbox(
+                                id=site_type_id(label),
+                                label=label,
+                                checked=default_checked,
+                                size="xs",
+                                color=OCHA_BLUE,
+                                styles={
+                                    "label": {"fontSize": LEGEND_FONT_SIZE}
+                                },
+                            ),
+                        ],
+                        style={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": "5px",
+                        },
+                    )
+                    for _, label, default_checked, color in SITE_TYPES
+                ],
+                style={
+                    "display": "flex",
+                    "flexDirection": "column",
+                    "gap": "3px",
                 },
             ),
             html.Div(
@@ -315,10 +354,10 @@ def map_container():
                     "zIndex": 999,
                 },
             ),
-            # Unused output target for the locations-toggle clientside
-            # callback, which flips heatmap canvas visibility directly
-            # and has no real UI element to update.
-            html.Div(id="heatmap-visibility-dummy", style={"display": "none"}),
+            # Unused output target for the site-type filter clientside
+            # callback, which rebuilds the points layer directly and
+            # has no real UI element to update.
+            html.Div(id="locations-display-dummy", style={"display": "none"}),
         ],
         style={"width": "100%", "height": "100%", "position": "relative"},
     )

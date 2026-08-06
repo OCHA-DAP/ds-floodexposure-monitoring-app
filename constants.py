@@ -111,7 +111,33 @@ LOCATIONS_BLOB_NAME = (
     f"{PROJECT_PREFIX}/processed/locations/sudan_locations.parquet"
 )
 
-# Map zoom level at/above which the locations layer switches from a
-# heatmap to individual hoverable points. Not visually tuned - a
-# starting guess given MAP_ZOOM=5 is the country-wide default.
-HEATMAP_ZOOM_THRESHOLD = 9
+# Populated-place site types, in small-to-large settlement order -
+# colors match SITE_TYPE_COLOR in assets/heatmap.js (keep both in
+# sync manually; heatmap.js isn't Python-templated). Each is (raw
+# site_type value from the data, display label, checked-by-default,
+# point/legend-swatch color). Village defaults unchecked - it's ~96%
+# of all points (11,511 of 11,980), so showing it by default would
+# defeat the point of being able to filter at all.
+SITE_TYPES = [
+    ("POP_5 - Village", "Village", False, CHD_LIGHTBLUE),
+    ("POP_3 - Secondary Town", "Secondary Town", True, CHD_MINT),
+    ("POP_2 - Primary Town", "Primary Town", True, CHD_GREEN),
+    (
+        "POP_4 - Administrative Centre",
+        "Administrative Centre",
+        True,
+        CHD_GREY,
+    ),  # noqa
+    ("POP_1 - Admin1 Capital", "Admin1 Capital", True, OCHA_BLUE),
+    ("POP_0 - National Capital", "National Capital", True, CHD_RED),
+]
+
+
+def site_type_id(label):
+    """Stable DOM id for a site-type filter checkbox, derived from its
+    display label - shared by layouts/content.py (renders the
+    checkbox) and callbacks/callbacks.py (references it as a Dash
+    Input), so both always agree without duplicating literal id
+    strings in two places.
+    """
+    return "site-type-" + label.lower().replace(" ", "-")
