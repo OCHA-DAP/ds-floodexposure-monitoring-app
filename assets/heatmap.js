@@ -11,6 +11,23 @@
 // callbacks/callbacks.py (Python-templated from OCHA_BLUE) before this
 // is ever read - not hardcoded here, so there's one source of truth.
 
+// Marker radius by settlement type, smallest (Village) to largest
+// (National Capital). Keyed on the exact "site_type" strings the
+// source data uses (e.g. "POP_5 - Village") - note the numeric
+// prefixes in that data do NOT sort into this hierarchy (POP_4
+// Administrative Centre > POP_3 Secondary Town numerically, despite
+// being the smaller of the two here), so this is an explicit mapping
+// rather than something derivable from the prefix number.
+const SITE_TYPE_RADIUS = {
+    "POP_5 - Village": 3,
+    "POP_3 - Secondary Town": 7,
+    "POP_2 - Primary Town": 9,
+    "POP_4 - Administrative Centre": 11,
+    "POP_1 - Admin1 Capital": 14,
+    "POP_0 - National Capital": 18,
+};
+const DEFAULT_SITE_TYPE_RADIUS = 3;
+
 window.getLocationsData = function () {
     window._locationsDataPromise =
         window._locationsDataPromise ||
@@ -53,9 +70,12 @@ window.rebuildPointsLayer = function (bounds) {
             // pass clicks through. Fine performance-wise since this
             // only ever holds the current viewport's points, not all
             // ~12k.
+            const radius =
+                SITE_TYPE_RADIUS[f.properties.site_type] ??
+                DEFAULT_SITE_TYPE_RADIUS;
             L.circleMarker([lat, lng], {
                 pane: "locations",
-                radius: 5,
+                radius: radius,
                 weight: 1,
                 color: window.LOCATIONS_POINT_COLOR,
                 fillColor: window.LOCATIONS_POINT_COLOR,

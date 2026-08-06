@@ -61,6 +61,22 @@ window.dashExtensions = Object.assign({}, window.dashExtensions, {
                             });
                             layerGroup.addLayer(heat);
                             window._heatLayer = heat;
+
+                            // The heat canvas otherwise always renders visible
+                            // once built - fetching+building it is async, so
+                            // it can finish well after the toggle callback's
+                            // one relevant firing already ran (and found no
+                            // canvas yet to hide). Reading the checkbox's live
+                            // DOM state here, at the moment the canvas is
+                            // actually created, is what makes an unchecked
+                            // default reliably stay hidden regardless of that
+                            // timing.
+                            const toggle = document.getElementById(
+                                "locations-toggle"
+                            );
+                            if (toggle && !toggle.checked) {
+                                heat._canvas.style.display = "none";
+                            }
                         })
                         .catch((err) => console.error("Heatmap layer failed:", err));
                 }

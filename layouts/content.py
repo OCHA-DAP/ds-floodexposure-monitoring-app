@@ -16,6 +16,7 @@ from constants import (
 
 NAVBAR_HEIGHT = 60 + 48
 GUTTER = 0
+LEGEND_FONT_SIZE = "12px"
 
 
 def content():
@@ -165,7 +166,7 @@ def legend():
             html.Div(
                 "Exposed population is...",
                 style={
-                    "fontSize": "12px",
+                    "fontSize": LEGEND_FONT_SIZE,
                     "fontWeight": "bold",
                     "marginBottom": "5px",
                 },
@@ -187,7 +188,7 @@ def legend():
                             html.Div(
                                 category,
                                 style={
-                                    "fontSize": "10px",
+                                    "fontSize": LEGEND_FONT_SIZE,
                                     "lineHeight": "1.1",
                                 },
                             ),
@@ -212,16 +213,79 @@ def legend():
                     "margin": "8px 0",
                 }
             ),
-            dmc.Checkbox(
-                id="locations-toggle",
-                label="Populated places",
-                checked=True,
+            html.Div(
+                [
+                    dmc.Checkbox(
+                        id="locations-toggle",
+                        label="Populated places overlay",
+                        checked=False,
+                        size="xs",
+                        color=OCHA_BLUE,
+                        # size="xs" alone doesn't reliably match the
+                        # literal pixel sizes used elsewhere in this
+                        # panel (title, swatch labels) - overriding the
+                        # label directly keeps every piece of legend
+                        # text the same size.
+                        styles={"label": {"fontSize": LEGEND_FONT_SIZE}},
+                    ),
+                    dmc.Tooltip(
+                        html.Span(
+                            "ⓘ",
+                            style={
+                                "cursor": "help",
+                                "color": "#888888",
+                                "fontSize": "18px",
+                            },
+                        ),
+                        label=(
+                            "Populated places are sized by settlement "
+                            "type, smallest to largest: village, "
+                            "secondary town, primary town, "
+                            "administrative centre, admin1 capital, "
+                            "national capital. Zoom in to see exact "
+                            "points instead of the density heatmap. "
+                            "Data provided by the OCHA office in Sudan."
+                        ),
+                        multiline=True,
+                        width=220,
+                        withArrow=True,
+                    ),
+                ],
+                style={
+                    "display": "flex",
+                    "alignItems": "center",
+                    "gap": "5px",
+                },
+            ),
+            html.Div(
+                style={
+                    "borderTop": "1px solid #dbdbdb",
+                    "margin": "8px 0",
+                }
+            ),
+            dmc.Select(
+                id="adm-level",
+                label="Admin level",
+                value="1",
+                data=[
+                    {"value": "0", "label": "Admin 0"},
+                    {"value": "1", "label": "Admin 1"},
+                    {"value": "2", "label": "Admin 2"},
+                ],
                 size="xs",
-                color=OCHA_BLUE,
+                styles={
+                    "label": {"fontSize": LEGEND_FONT_SIZE},
+                    "input": {"fontSize": LEGEND_FONT_SIZE},
+                    "item": {"fontSize": LEGEND_FONT_SIZE},
+                },
             ),
         ],
         style={
-            "width": "130px",
+            "position": "absolute",
+            "top": "10px",
+            "right": "20px",
+            "zIndex": 1000,
+            "width": "170px",
             "boxSizing": "border-box",
             "padding": "10px",
             "backgroundColor": "rgba(255, 255, 255, 0.8)",
@@ -241,36 +305,7 @@ def map_container():
                 zoom=MAP_ZOOM,
                 id="map",
             ),
-            # legend() and the admin-level selector stack inside one
-            # positioned wrapper (rather than each being independently
-            # absolutely-positioned with a hardcoded "top" offset) so
-            # they can't overlap - the legend's height changes as its
-            # content does, and a fixed pixel offset for whatever comes
-            # after it silently breaks every time that happens.
-            html.Div(
-                [
-                    legend(),
-                    dmc.Select(
-                        id="adm-level",
-                        value="1",
-                        data=[
-                            {"value": "0", "label": "Admin 0"},
-                            {"value": "1", "label": "Admin 1"},
-                            {"value": "2", "label": "Admin 2"},
-                        ],
-                        style={"width": 130},
-                    ),
-                ],
-                style={
-                    "position": "absolute",
-                    "top": "10px",
-                    "right": "20px",
-                    "zIndex": 1000,
-                    "display": "flex",
-                    "flexDirection": "column",
-                    "gap": "10px",
-                },
-            ),
+            legend(),
             dmc.Text(
                 id="hover-place-name",
                 style={

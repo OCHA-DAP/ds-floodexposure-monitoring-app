@@ -104,6 +104,22 @@ heat_layer_handler = assign(
                     });
                     layerGroup.addLayer(heat);
                     window._heatLayer = heat;
+
+                    // The heat canvas otherwise always renders visible
+                    // once built - fetching+building it is async, so
+                    // it can finish well after the toggle callback's
+                    // one relevant firing already ran (and found no
+                    // canvas yet to hide). Reading the checkbox's live
+                    // DOM state here, at the moment the canvas is
+                    // actually created, is what makes an unchecked
+                    // default reliably stay hidden regardless of that
+                    // timing.
+                    const toggle = document.getElementById(
+                        "locations-toggle"
+                    );
+                    if (toggle && !toggle.checked) {
+                        heat._canvas.style.display = "none";
+                    }
                 })
                 .catch((err) => console.error("Heatmap layer failed:", err));
         }
@@ -177,6 +193,14 @@ def register_callbacks(app):
     # mounted - "showing"/"hiding" the heat layer is a CSS toggle on
     # its one canvas element, and "hiding" the points layer is just
     # clearing its (viewport-scoped, so already small) marker set.
+    #
+    # prevent_initial_call is deliberately NOT set here: the toggle
+    # defaults to unchecked, and without an initial firing nothing
+    # would ever apply that - the heat canvas would render visible on
+    # load regardless, since there's no other code path that hides it.
+    # checked=False short-circuits both showHeat/showPoints to false
+    # even if zoom/bounds haven't populated yet on this first call, so
+    # firing before the layers exist is harmless either way.
     app.clientside_callback(
         """
         function(checked, zoom, bounds) {
@@ -199,7 +223,6 @@ def register_callbacks(app):
         Input("locations-toggle", "checked"),
         Input("map", "zoom"),
         Input("map", "bounds"),
-        prevent_initial_call=True,
     )
 
     @app.callback(
