@@ -93,9 +93,8 @@ CHD_RED = "#f2645a"
 
 NAVBAR_HEIGHT = 60
 
-ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'  # noqa
-URL = "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-URL_LABELS = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
+ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'  # noqa
+URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 
 CUR_YEAR = datetime.today().year
 

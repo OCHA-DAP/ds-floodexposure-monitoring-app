@@ -7,7 +7,7 @@ import pandas as pd
 from dash import Input, Output, State, dcc, html, no_update
 from dash_extensions.javascript import arrow_function, assign
 
-from constants import ATTRIBUTION, URL, URL_LABELS
+from constants import ATTRIBUTION, URL
 from utils.chart_utils import create_return_period_plot, create_timeseries_plot
 from utils.data_utils import (
     calculate_return_periods,
@@ -145,11 +145,6 @@ def register_callbacks(app):
             dl.TileLayer(url=URL, attribution=ATTRIBUTION),
             dl.Pane(adm0, style={"zIndex": 1001}, name="adm0"),
             dl.Pane(geojson, style={"zIndex": 1000}, name="sel"),
-            dl.Pane(
-                dl.TileLayer(url=URL_LABELS, attribution=ATTRIBUTION),
-                name="tile",
-                style={"zIndex": 1002},
-            ),
             title,
             colorbar,
         ]
